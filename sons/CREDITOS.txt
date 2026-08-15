@@ -1,0 +1,28 @@
+Sons de aviso do app — origem, autoria e licença
+================================================
+
+Todos vieram do Wikimedia Commons. Foram recortados, tiveram o volume
+percebido igualado entre si e foram convertidos para MP3 mono de 64 kbps.
+Os recortes mantêm a licença do original.
+
+despertador.mp3
+  Original: "Alarmclock-mechanical.ogg" — despertador mecânico de corda
+  Recorte:  de 2,00 s a 3,70 s do original (antes disso só há o tique-taque)
+  Autor:    Dub (Wikimedia Commons)
+  Licença:  CC BY-SA 3.0 / GFDL  → este recorte também é CC BY-SA 3.0
+  Fonte:    https://commons.wikimedia.org/wiki/File:Alarmclock-mechanical.ogg
+
+apito.mp3
+  Original: "218318 splicesound referee-whistle-blow-gymnasium.wav"
+            apito de árbitro, gravado em ginásio
+  Recorte:  um toque (0,05 s a 0,71 s) repetido três vezes
+  Autor:    SpliceSound
+  Licença:  CC0 1.0 (domínio público)
+  Fonte:    https://commons.wikimedia.org/wiki/File:218318_splicesound_referee-whistle-blow-gymnasium.wav
+
+gongo.mp3
+  Original: "Gong or bell vibrant (short).ogg"
+  Recorte:  de 0,15 s a 2,00 s do original
+  Autor:    stephan (PDSounds)
+  Licença:  CC0 1.0 (domínio público)
+  Fonte:    https://commons.wikimedia.org/wiki/File:Gong_or_bell_vibrant_(short).ogg

@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="description" content="Meu Treino: o plano do seu professor no celular, com cronometro, timer de descanso, registro de cargas e historico. Funciona sem internet.">
+<meta name="theme-color" content="#12151A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meu Treino">
+<meta name="color-scheme" content="dark light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>
+/* A capa é para quando o app é ABERTO, não para toda vez que a página
+   carrega. Recarregar (puxar a tela para baixo, ou o próprio app se
+   recarregando depois de uma atualização) não é abrir de novo, e voltar
+   para a capa no meio do treino atrapalha. O sessionStorage separa os dois
+   casos: ele sobrevive a um recarregamento e ao app minimizado, mas é
+   apagado quando o app é fechado de verdade. Roda aqui no <head>, antes de
+   a página desenhar, senão a capa piscaria antes de sumir. */
+try{ if(sessionStorage.getItem("meu-treino-aberto")) document.documentElement.className += " ja-abriu"; }catch(e){}
+</script>
+</head>
+<body>
+<title>Meu Treino · Plano e cronômetro</title>
+
+<style>
+  :root{
+    --ground:#12151A;
+    --surface:#1A1F27;
+    --surface-2:#222933;
+    --line:#2C3441;
+    --line-soft:#232A34;
+    --ink:#ECEFF3;
+    --ink-2:#98A3B0;
+    --ink-3:#66707D;
+    --accent:#4A90FF;
+    --accent-soft:rgba(74,144,255,.14);
+    --accent-ink:#0A1020;
+    --good:#3FBF7F;
+    --good-soft:rgba(63,191,127,.14);
+    --on-good:#08120C;
+    --warn:#F2B13C;
+    --radius:11px;
+    --f-display:"Avenir Next Condensed","Helvetica Neue Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+    --f-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --f-mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    color-scheme:dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --ground:#E9ECEF;
+      --surface:#FFFFFF;
+      --surface-2:#F1F3F6;
+      --line:#D3D9E0;
+      --line-soft:#E3E7EC;
+      --ink:#141920;
+      --ink-2:#5B6672;
+      --ink-3:#8A949F;
+      --accent:#1D5FD8;
+      --accent-soft:rgba(29,95,216,.10);
+      --accent-ink:#FFFFFF;
+      --good:#1E8A57;
+      --good-soft:rgba(30,138,87,.12);
+      --on-good:#FFFFFF;
+      --warn:#A96C05;
+      color-scheme:light;
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#E9ECEF;--surface:#FFFFFF;--surface-2:#F1F3F6;--line:#D3D9E0;--line-soft:#E3E7EC;
+    --ink:#141920;--ink-2:#5B6672;--ink-3:#8A949F;--accent:#1D5FD8;--accent-soft:rgba(29,95,216,.10);
+    --accent-ink:#FFFFFF;--good:#1E8A57;--good-soft:rgba(30,138,87,.12);--on-good:#FFFFFF;
+    --warn:#A96C05;color-scheme:light;
+  }
+  :root[data-theme="dark"]{
+    --ground:#12151A;--surface:#1A1F27;--surface-2:#222933;--line:#2C3441;--line-soft:#232A34;
+    --ink:#ECEFF3;--ink-2:#98A3B0;--ink-3:#66707D;--accent:#4A90FF;--accent-soft:rgba(74,144,255,.14);
+    --accent-ink:#0A1020;--good:#3FBF7F;--good-soft:rgba(63,191,127,.14);--on-good:#08120C;
+    --warn:#F2B13C;color-scheme:dark;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;overflow-x:hidden;background:var(--ground);color:var(--ink);font-family:var(--f-body);
+       -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;
+       -webkit-tap-highlight-color:transparent}
+  button,input,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;background:none;border:none;padding:0}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+  .wrap{max-width:620px;margin:0 auto;padding:0 14px 150px}
+
+  /* ---------- cabeçalho ---------- */
+  .top{position:sticky;top:0;z-index:40;background:var(--ground);
+       border-bottom:1px solid var(--line);margin:0 -14px;padding:0 14px}
+  .top::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+    background:repeating-linear-gradient(90deg,transparent 0 39px,var(--line-soft) 39px 40px)}
+  .top>*{position:relative}
+  .brand{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0 9px}
+  .brand>div:first-child{min-width:0}
+  .brand h1{font-family:var(--f-display);font-size:20px;letter-spacing:.055em;text-transform:uppercase;
+            margin:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand h1 span{color:var(--accent)}
+  .brand .sub{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+              font-weight:600;white-space:nowrap}
+  .iconbtn{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);
+           border-radius:8px;color:var(--ink-2);background:var(--surface)}
+  .iconbtn:active{background:var(--surface-2)}
+  .headrow{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  /* tempo total do treino: fica no cabeçalho fixo, então acompanha a rolagem */
+  .stime{height:34px;padding:0 9px;display:grid;place-items:center;border:1px solid var(--accent);
+         border-radius:8px;background:var(--accent-soft);color:var(--accent);font-family:var(--f-mono);
+         font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+  .weeks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding-bottom:10px}
+  .wk{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:7px 4px 6px;
+      text-align:center;transition:background .12s,border-color .12s}
+  .wk .n{font-family:var(--f-display);font-size:19px;font-weight:700;letter-spacing:.03em;line-height:1}
+  .wk .l{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);font-weight:600;
+         margin-top:3px}
+  .wk .bar{height:3px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
+  .wk .bar i{display:block;height:100%;background:var(--ink-3);border-radius:2px;transition:width .3s}
+  .wk[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .wk[aria-pressed="true"] .l{color:var(--accent-ink);opacity:.72}
+  .wk[aria-pressed="true"] .bar{background:rgba(0,0,0,.22)}
+  .wk[aria-pressed="true"] .bar i{background:var(--accent-ink)}
+
+  .days{display:flex;gap:6px;overflow-x:auto;padding:0 0 11px;scrollbar-width:none;
+        margin:0 -14px;padding-left:14px;padding-right:14px}
+  .days::-webkit-scrollbar{display:none}
+  .day{flex:0 0 auto;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+       padding:7px 11px 6px;text-align:left;min-width:96px}
+  .day .k{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+  .day .t{font-family:var(--f-display);font-size:16px;letter-spacing:.045em;text-transform:uppercase;
+          font-weight:700;line-height:1.15;margin-top:1px}
+  .day .bar{height:3px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
+  .day .bar i{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+  .day[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+  .day[aria-pressed="true"] .k{color:var(--accent)}
+  .day .chk{color:var(--good);font-size:11px;font-weight:700}
+
+  /* ---------- convite de instalação ---------- */
+  .install{display:flex;align-items:center;gap:11px;margin-top:14px;padding:11px 12px;
+           border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent-soft)}
+  .install .ic{flex:0 0 auto;width:32px;height:32px;border-radius:8px;background:var(--accent);
+               color:var(--accent-ink);display:grid;place-items:center;font-size:17px;font-weight:700}
+  .install .tx{flex:1;min-width:0}
+  .install .tt{font-family:var(--f-display);font-size:16px;letter-spacing:.045em;text-transform:uppercase;
+               font-weight:700;line-height:1.1}
+  .install .dd{color:var(--ink-2);font-size:12.5px;margin-top:2px}
+  .install .go{flex:0 0 auto;height:36px;padding:0 13px;border-radius:8px;background:var(--accent);
+               color:var(--accent-ink);font-family:var(--f-display);font-size:14px;letter-spacing:.06em;
+               text-transform:uppercase;font-weight:700}
+  .install .x{flex:0 0 auto;width:28px;height:28px;color:var(--ink-3);font-size:17px;display:grid;
+              place-items:center}
+
+  .steps{counter-reset:st;display:grid;gap:11px;margin:0 0 4px;padding:0;list-style:none}
+  /* O número é posicionado por cima, não como item de flex: com flex, cada
+     trecho de texto e cada <b> virava uma coluna e a frase quebrava. */
+  .steps li{counter-increment:st;position:relative;padding-left:34px;min-height:23px;
+            font-size:14px;line-height:1.45}
+  .steps li::before{content:counter(st);position:absolute;left:0;top:0;width:23px;height:23px;
+                    border-radius:6px;background:var(--surface-2);border:1px solid var(--line);
+                    color:var(--ink-2);font-family:var(--f-mono);font-size:12px;font-weight:600;
+                    display:grid;place-items:center}
+  .steps b{color:var(--ink);font-weight:700}
+
+  /* etiqueta do aparelho detectado: deixa claro que os passos abaixo são
+     os do celular de quem está lendo, e não uma lista genérica */
+  .plat{display:inline-flex;align-items:center;gap:7px;margin:-8px 0 15px;padding:5px 10px;
+        border:1px solid var(--line);border-radius:6px;background:var(--surface-2);
+        font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--ink-2)}
+  .plat b{color:var(--accent);font-weight:700}
+
+  /* ---------- QR e link do app ---------- */
+  .qrbox{display:flex;align-items:center;gap:13px;margin:0 0 16px;padding:12px;
+         border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+  .qr{flex:0 0 auto;width:92px;height:92px;border-radius:6px;background:#fff;padding:3px}
+  .qrtx{flex:1;min-width:0}
+  .qrtx .qt{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+            font-weight:700}
+  .qrtx .qu{font-family:var(--f-mono);font-size:12px;color:var(--ink);margin-top:5px;
+            word-break:break-all;line-height:1.35;user-select:all}
+  .qrtx button{margin-top:8px;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+               color:var(--ink-2);font-weight:700;border:1px solid var(--line);border-radius:5px;
+               padding:5px 9px;background:var(--surface)}
+
+  /* ---------- resumo da sessão ---------- */
+  .meta{display:flex;align-items:center;gap:13px;padding:15px 0 4px}
+  .ring{flex:0 0 auto}
+  .ring circle{fill:none;stroke-width:5}
+  .ring .bg{stroke:var(--line)}
+  .ring .fg{stroke:var(--accent);stroke-linecap:round;transition:stroke-dasharray .35s}
+  .ring text{font-family:var(--f-mono);font-size:15px;font-weight:600;fill:var(--ink);
+             text-anchor:middle;font-variant-numeric:tabular-nums}
+  .meta .info h2{font-family:var(--f-display);font-size:25px;letter-spacing:.04em;text-transform:uppercase;
+                 margin:0;font-weight:700;line-height:1.05}
+  .meta .info p{margin:3px 0 0;color:var(--ink-2);font-size:13px}
+  .meta .info .cnt{font-family:var(--f-mono);font-size:11.5px;color:var(--ink-3);letter-spacing:.02em;
+                   margin-top:4px;font-variant-numeric:tabular-nums}
+
+  /* ---------- blocos ---------- */
+  .block{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+         margin-top:12px;overflow:hidden}
+  .block.done{border-color:var(--good)}
+  .bhead{display:flex;align-items:flex-start;gap:11px;padding:13px 14px 11px}
+  .bnum{font-family:var(--f-display);font-size:30px;font-weight:700;line-height:.85;color:var(--ink-3);
+        letter-spacing:.02em;font-variant-numeric:tabular-nums;min-width:26px}
+  .block.done .bnum{color:var(--good)}
+  .btitle{flex:1;min-width:0}
+  .btitle h3{font-family:var(--f-display);font-size:19px;letter-spacing:.045em;text-transform:uppercase;
+             margin:0;font-weight:700;line-height:1.1}
+  .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .tag{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;font-weight:700;
+       border:1px solid var(--line);border-radius:4px;padding:2.5px 6px;color:var(--ink-2)}
+  .tag.hot{border-color:var(--accent);color:var(--accent)}
+  .tag.plan{border-color:var(--ink-3)}
+
+  .items{border-top:1px solid var(--line-soft);padding:11px 14px 3px}
+  .item{display:flex;gap:9px;padding:0 0 10px}
+  .item .dot{flex:0 0 auto;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:8px}
+  .item .txt{flex:1;min-width:0}
+  .item .n{font-weight:600;font-size:14.5px;line-height:1.3}
+  .item .p{color:var(--ink-2);font-size:13px;margin-top:1px}
+  .vbtn{flex:0 0 auto;width:36px;height:36px;margin:-4px -4px 0 0;border:1px solid var(--line);
+        border-radius:8px;background:var(--surface-2);color:var(--ink-2);display:grid;place-items:center;
+        font-size:12px;line-height:1}
+  .vbtn:active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .vbtn.saved{border-color:var(--accent);color:var(--accent)}
+
+  .vlink{display:block;text-align:center;height:48px;line-height:46px;border-radius:9px;
+         background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-size:16px;
+         letter-spacing:.07em;text-transform:uppercase;font-weight:700;text-decoration:none}
+  .vlink.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+  .vplayer{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:9px;
+           overflow:hidden;border:1px solid var(--line);margin-bottom:12px}
+  .vplayer iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .vcred{color:var(--ink-3);font-size:12px;margin:-6px 0 12px;line-height:1.45}
+  .vfield{margin-top:16px}
+  .vfield label{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+                font-weight:700;display:block;margin-bottom:7px}
+  .vfield input{width:100%;height:46px;background:var(--surface-2);border:1px solid var(--line);
+                border-radius:8px;padding:0 11px;font-size:14px}
+  .vfield input:focus{border-color:var(--accent);outline:none}
+  .vsub{color:var(--ink-3);font-size:12px;margin:6px 0 0;line-height:1.45}
+  .note{border-top:1px solid var(--line-soft);padding:9px 14px;color:var(--warn);font-size:12.5px;
+        display:flex;gap:7px;align-items:flex-start}
+  .note b{font-weight:700}
+
+  .sets{border-top:1px solid var(--line-soft);padding:11px 14px 13px}
+  .setlabel{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+            font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .setlabel button{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);
+                   font-weight:700;border:1px solid var(--line);border-radius:5px;padding:3px 7px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{min-width:46px;height:46px;padding:0 10px;border:1px solid var(--line);border-radius:9px;
+        background:var(--surface-2);font-family:var(--f-mono);font-size:15px;font-weight:600;
+        display:grid;place-items:center;font-variant-numeric:tabular-nums;color:var(--ink-2);
+        transition:transform .1s,background .12s,border-color .12s}
+  .chip:active{transform:scale(.94)}
+  .chip[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:var(--on-good);
+                             font-weight:700}
+
+  .logs{border-top:1px solid var(--line-soft);padding:11px 14px 13px;display:grid;gap:11px}
+  .log .lh{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+           font-weight:700;margin-bottom:7px;display:flex;justify-content:space-between;gap:8px}
+  .log .lh .prev{display:flex;align-items:center;gap:7px;flex:0 0 auto;color:var(--ink-2);
+                 letter-spacing:.02em;text-transform:none;font-family:var(--f-mono);
+                 font-size:11px;font-weight:500}
+  .fields{display:flex;gap:7px;flex-wrap:wrap}
+  .field{position:relative;flex:1 1 76px;min-width:76px}
+  .field input{width:100%;height:42px;background:var(--surface-2);border:1px solid var(--line);
+               border-radius:8px;padding:12px 8px 4px;font-family:var(--f-mono);font-size:15px;
+               font-variant-numeric:tabular-nums;text-align:center}
+  .field input:focus{border-color:var(--accent);outline:none}
+  .field span{position:absolute;top:4px;left:0;right:0;text-align:center;font-size:8.5px;
+              letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;
+              pointer-events:none}
+  .field .stop{position:absolute;right:4px;bottom:4px;font-size:13px;color:var(--accent);
+               width:22px;height:22px;display:grid;place-items:center}
+
+  /* ---------- rodapé da sessão ---------- */
+  .notes{margin-top:12px;background:var(--surface);border:1px solid var(--line);
+         border-radius:var(--radius);padding:13px 14px}
+  .notes label{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+               font-weight:700;display:block;margin-bottom:8px}
+  .notes textarea{width:100%;min-height:74px;background:var(--surface-2);border:1px solid var(--line);
+                  border-radius:8px;padding:10px;resize:vertical;font-size:14px}
+  .notes textarea:focus{border-color:var(--accent);outline:none}
+
+  .finish{width:100%;margin-top:12px;height:52px;border-radius:var(--radius);background:var(--accent);
+          color:var(--accent-ink);font-family:var(--f-display);font-size:18px;letter-spacing:.07em;
+          text-transform:uppercase;font-weight:700}
+  .finish.is-done{background:var(--good-soft);color:var(--good);border:1px solid var(--good)}
+  .finish:active{opacity:.85}
+
+  .banner{margin-top:12px;border:1px solid var(--accent);background:var(--accent-soft);
+          border-radius:var(--radius);padding:14px}
+  .banner h3{font-family:var(--f-display);font-size:19px;letter-spacing:.045em;text-transform:uppercase;
+             margin:0 0 5px;color:var(--accent)}
+  .banner p{margin:0;font-size:13.5px;color:var(--ink-2)}
+
+  /* ---------- histórico ---------- */
+  .sec{font-family:var(--f-display);font-size:15px;letter-spacing:.11em;text-transform:uppercase;
+       color:var(--ink-3);font-weight:700;margin:22px 0 9px;padding-bottom:7px;
+       border-bottom:1px solid var(--line)}
+  .hcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+         padding:12px 14px;margin-top:9px}
+  .hrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .hrow .nm{font-weight:600;font-size:14px}
+  .hrow .dt{font-family:var(--f-mono);font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+  .cell{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:7px;padding:6px 4px;
+        text-align:center}
+  .cell .w{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+  .cell .v{font-family:var(--f-mono);font-size:13px;margin-top:2px;font-variant-numeric:tabular-nums;
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell.empty .v{color:var(--ink-3)}
+  .cell.best{border-color:var(--accent)}
+  .cell.best .v{color:var(--accent);font-weight:700}
+  .empty-state{color:var(--ink-2);font-size:13.5px;padding:16px 2px;text-align:center}
+
+  /* ---------- barra de cronômetro ---------- */
+  .dock{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--surface);
+        border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+        transform:translateY(110%);transition:transform .22s ease;
+        box-shadow:0 -10px 30px rgba(0,0,0,.28)}
+  .dock.open{transform:translateY(0)}
+  .dock.ring{border-top-color:var(--accent)}
+  .dock.soon{border-top-color:var(--warn)}
+  .dock.soon .time{color:var(--warn)}
+  .dockin{max-width:620px;margin:0 auto;display:flex;align-items:center;gap:10px}
+  .dockin>div:first-child{min-width:0;flex:0 1 auto}
+  .dock .lbl{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+             font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dock .time{font-family:var(--f-mono);font-size:34px;font-weight:600;line-height:1;
+              font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .dock.ring .time{color:var(--accent)}
+  .dock .ctrl{display:flex;gap:5px;margin-left:auto;flex:0 0 auto}
+  .dock .ctrl button{min-width:40px;height:44px;padding:0 7px;border:1px solid var(--line);
+                     border-radius:9px;background:var(--surface-2);font-family:var(--f-mono);
+                     font-size:13px;font-weight:600;display:grid;place-items:center}
+  .dock .ctrl button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);
+                         font-family:var(--f-display);font-size:14px;letter-spacing:.07em;
+                         text-transform:uppercase;font-weight:700}
+
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--surface);
+        border-top:1px solid var(--line);display:flex;
+        padding-bottom:env(safe-area-inset-bottom)}
+  .tabs button{flex:1;padding:11px 4px 12px;font-family:var(--f-display);font-size:14px;
+               letter-spacing:.11em;text-transform:uppercase;font-weight:700;color:var(--ink-3)}
+  .tabs button[aria-pressed="true"]{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}
+
+  /* ---------- painel ---------- */
+  .sheet{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);display:none;
+         align-items:flex-end;justify-content:center}
+  .sheet.open{display:flex}
+  .sheet .panel{background:var(--surface);border-top:1px solid var(--line);width:100%;max-width:620px;
+                border-radius:16px 16px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));
+                max-height:86vh;overflow-y:auto}
+  .sheet h3{font-family:var(--f-display);font-size:20px;letter-spacing:.05em;text-transform:uppercase;
+            margin:0 0 14px;font-weight:700}
+  .opt{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;
+       border-bottom:1px solid var(--line-soft)}
+  .opt .ot{font-weight:600;font-size:14.5px}
+  .opt .od{color:var(--ink-2);font-size:12.5px;margin-top:2px}
+  .sw{flex:0 0 auto;width:50px;height:29px;border-radius:15px;background:var(--line);position:relative;
+      transition:background .16s}
+  .sw i{position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:var(--ink-2);
+        transition:transform .16s,background .16s}
+  .sw[aria-pressed="true"]{background:var(--accent)}
+  .sw[aria-pressed="true"] i{transform:translateX(21px);background:var(--accent-ink)}
+  .seg{flex:0 0 auto;display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;
+       background:var(--surface-2)}
+  .seg button{padding:8px 11px;font-size:12.5px;color:var(--ink-2);border-left:1px solid var(--line)}
+  .seg button:first-child{border-left:none}
+  .seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+  .btnrow{display:grid;gap:8px;margin-top:16px}
+  .btnrow button{height:46px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);
+                 font-family:var(--f-display);font-size:15px;letter-spacing:.07em;text-transform:uppercase;
+                 font-weight:700}
+  .btnrow button.danger{color:#E0543C;border-color:rgba(224,84,60,.45)}
+  .hint{color:var(--ink-3);font-size:12px;margin-top:12px;line-height:1.45}
+
+  /* ---------- simulado ---------- */
+  .mini{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);font-weight:700;
+        border:1px solid var(--line);border-radius:5px;padding:4px 8px;background:var(--surface-2)}
+  .cd{display:flex;align-items:center;gap:13px;margin-top:16px;background:var(--surface);
+      border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .cd.hot{border-color:var(--accent);background:var(--accent-soft)}
+  .cd .big{flex:0 0 auto;font-family:var(--f-display);font-size:38px;font-weight:700;line-height:.9;
+           letter-spacing:.02em;font-variant-numeric:tabular-nums}
+  .cd.hot .big{color:var(--accent)}
+  .cd .cl{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+  .cd .cp{color:var(--ink-2);font-size:12.5px;margin-top:3px}
+
+  .prova{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+         padding:13px 14px;margin-top:10px}
+  .prova.ok{border-color:var(--good)}
+  .prova .ph{display:flex;align-items:flex-start;gap:10px}
+  .prova .pn{flex:1;min-width:0}
+  .prova .pn h4{font-family:var(--f-display);font-size:17px;letter-spacing:.045em;text-transform:uppercase;
+                margin:0;font-weight:700;line-height:1.1}
+  .prova .pn .ps{color:var(--ink-3);font-size:12px;margin-top:2px}
+  .verd{flex:0 0 auto;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;
+        border-radius:5px;padding:4px 7px;border:1px solid var(--line);color:var(--ink-3);white-space:nowrap}
+  .verd.ok{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+  .verd.no{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .prova .now{display:flex;align-items:baseline;gap:8px;margin-top:11px}
+  .prova .now b{font-family:var(--f-mono);font-size:25px;font-weight:600;line-height:1;
+                font-variant-numeric:tabular-nums}
+  .prova .now span{color:var(--ink-2);font-size:12.5px}
+  .prova .ev{color:var(--good);font-size:12.5px;margin-top:6px;font-weight:600}
+  .prova .ev.down{color:var(--warn)}
+  .rowin{display:flex;gap:7px;margin-top:11px}
+  .rowin input{flex:1;min-width:0;height:44px;background:var(--surface-2);border:1px solid var(--line);
+               border-radius:8px;padding:0 11px;font-family:var(--f-mono);font-size:15px;text-align:center;
+               font-variant-numeric:tabular-nums}
+  .rowin input:focus{border-color:var(--accent);outline:none}
+  .rowin button{flex:0 0 auto;height:44px;padding:0 14px;border:1px solid var(--accent);border-radius:8px;
+                background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-size:14px;
+                letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+  .rowin button.gh{background:var(--surface-2);border-color:var(--line);color:var(--ink);flex:1}
+  .meta2{display:flex;align-items:center;gap:9px;margin-top:11px;padding-top:10px;
+         border-top:1px solid var(--line-soft)}
+  .meta2 label{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+  .meta2 input{width:86px;height:36px;background:var(--surface-2);border:1px solid var(--line);
+               border-radius:7px;padding:0 9px;font-family:var(--f-mono);font-size:14px;text-align:center}
+  .meta2 input:focus{border-color:var(--accent);outline:none}
+  .meta2 .un{color:var(--ink-3);font-size:12px}
+  .hist{margin-top:11px;border-top:1px solid var(--line-soft);padding-top:9px;display:grid;gap:4px}
+  .hist .hl{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-mono);
+            font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .hist .del{color:var(--ink-3);font-size:16px;width:24px;height:24px;display:grid;place-items:center}
+
+  .dateip{flex:0 0 auto;height:40px;background:var(--surface-2);border:1px solid var(--line);
+          border-radius:8px;padding:0 10px;font-family:var(--f-mono);font-size:13px;color:var(--ink)}
+  .dateip:focus{border-color:var(--accent);outline:none}
+
+  /* ---------- capa de primeira abertura ---------- */
+  /* overflow-x escondido: o brilho de fundo (::after) tem 150% de largura e
+     vazava para fora, criando barra de rolagem horizontal na capa */
+  .capa{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
+        background:var(--ground);padding:calc(26px + env(safe-area-inset-top)) 22px
+        calc(26px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden}
+  html.ja-abriu .capa{display:none}
+  .capa::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.42;
+    background:repeating-linear-gradient(90deg,transparent 0 39px,var(--line-soft) 39px 40px)}
+  /* o brilho é desenhado dentro da própria caixa (gradiente dimensionado),
+     em vez de um bloco de 150% que estourava a largura */
+  .capa::after{content:"";position:absolute;left:0;right:0;top:0;height:56%;pointer-events:none;
+    background:radial-gradient(125% 100% at 50% 0%,var(--accent-soft) 0%,transparent 70%)}
+  .capa-in{position:relative;margin:auto;width:100%;max-width:420px;text-align:center}
+  .capa-marca{width:88px;height:88px;margin:0 auto 22px;display:block}
+  .capa h1{font-family:var(--f-display);font-size:44px;letter-spacing:.045em;text-transform:uppercase;
+           margin:0;font-weight:700;line-height:.95}
+  .capa h1 span{color:var(--accent)}
+  .capa .corp{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-3);
+              font-weight:700;margin-top:9px}
+  .capa .conta{margin-top:18px;border:1px solid var(--accent);background:var(--accent-soft);
+               border-radius:10px;padding:9px 15px;display:inline-flex;align-items:baseline;gap:9px}
+  .capa .conta b{font-family:var(--f-display);font-size:27px;line-height:1;color:var(--accent);
+                 font-weight:700;font-variant-numeric:tabular-nums}
+  .capa .conta span{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+                    color:var(--ink-2);font-weight:700}
+  .capa .promessa{color:var(--ink-2);font-size:14.5px;line-height:1.5;margin:20px auto 0;max-width:330px}
+  .capa .provas{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:22px 0 0}
+  .capa .provas span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+                     color:var(--ink-2);border:1px solid var(--line);border-radius:5px;padding:5px 8px}
+  .capa .go{width:100%;height:56px;margin-top:28px;border-radius:12px;background:var(--accent);
+            color:var(--accent-ink);font-family:var(--f-display);font-size:19px;letter-spacing:.07em;
+            text-transform:uppercase;font-weight:700}
+  .capa .go:active{opacity:.86}
+  /* Segundo botão de verdade, contornado: some como texto sublinhado e
+     ninguém acha — mas continua abaixo do laranja na hierarquia. */
+  .capa .inst{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:52px;
+              margin-top:11px;border:1.5px solid var(--accent);border-radius:12px;
+              background:transparent;color:var(--accent);font-family:var(--f-display);font-size:16px;
+              letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+  .capa .inst i{font-style:normal;width:22px;height:22px;border-radius:6px;background:var(--accent);
+                color:var(--accent-ink);display:grid;place-items:center;font-size:16px;line-height:1;
+                font-family:var(--f-body);font-weight:700}
+  .capa .inst:active{background:var(--accent-soft)}
+  .capa .rodape{color:var(--ink-3);font-size:12px;margin-top:15px;line-height:1.45}
+
+  /* ---------- aviso de versão nova ---------- */
+  .upd{position:fixed;left:0;right:0;top:0;z-index:95;display:none;align-items:center;gap:9px;
+       padding:calc(11px + env(safe-area-inset-top)) 14px 11px;background:var(--accent);
+       color:var(--accent-ink);box-shadow:0 6px 22px rgba(0,0,0,.32)}
+  .upd.open{display:flex}
+  .upd .ut{flex:1;min-width:0}
+  .upd .ut b{display:block;font-family:var(--f-display);font-size:15px;letter-spacing:.05em;
+             text-transform:uppercase;font-weight:700;line-height:1.1}
+  .upd .ut i{display:block;font-style:normal;font-size:12px;opacity:.8;margin-top:2px}
+  .upd button{flex:0 0 auto;height:36px;padding:0 13px;border-radius:8px;background:var(--accent-ink);
+              color:var(--accent);font-family:var(--f-display);font-size:13.5px;letter-spacing:.06em;
+              text-transform:uppercase;font-weight:700}
+  .upd button.x{width:30px;padding:0;background:transparent;color:var(--accent-ink);font-size:21px;
+                opacity:.75}
+
+  /* ---------- esforço da sessão ---------- */
+  .rpe{display:grid;gap:8px}
+  .rpe button{display:flex;align-items:center;gap:12px;min-height:58px;padding:9px 13px;
+              border:1px solid var(--line);border-radius:10px;background:var(--surface-2);text-align:left}
+  .rpe button:active{border-color:var(--accent);background:var(--accent-soft)}
+  .rpe button em{flex:0 0 auto;font-style:normal;font-size:23px;line-height:1}
+  .rpe button b{display:block;font-weight:600;font-size:14.5px}
+  .rpe button i{display:block;font-style:normal;color:var(--ink-2);font-size:12.5px;margin-top:1px}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="capa" id="capa">
+  <div class="capa-in">
+    <svg class="capa-marca" viewBox="0 0 96 96" role="img" aria-label="Meu Treino">
+      <rect width="96" height="96" rx="21" fill="var(--accent)"></rect>
+      <rect x="15.2" y="20.8" width="65.6" height="10.9" rx="1.5" fill="var(--ground)"></rect>
+      <rect x="41.8" y="31.7" width="12.4" height="43.5" rx="1.7" fill="var(--ground)"></rect>
+    </svg>
+    <h1>Meu Treino<span>.</span></h1>
+    <div class="conta" id="capaConta" style="display:none"></div>
+    <p class="promessa">O plano do seu professor, o cronômetro e o registro das
+      cargas no mesmo lugar — funcionando até sem internet.</p>
+    <div class="provas">
+      <span>Cronômetro</span><span>Cargas</span><span>Histórico</span>
+    </div>
+    <button class="go" id="capaGo">Iniciar meu treino</button>
+    <button class="inst" id="capaInst" style="display:none"><i>+</i>Instalar na tela inicial</button>
+    <p class="rodape">Seus registros ficam só neste aparelho.</p>
+  </div>
+</div>
+
+<div class="upd" id="upd">
+  <div class="ut"><b>Nova versão do app</b><i>Toque para carregar as novidades</i></div>
+  <button id="updGo">Atualizar</button>
+  <button class="x" id="updX" aria-label="Agora não">×</button>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div>
+        <h1>Meu Treino<span>.</span></h1>
+        <div class="sub" id="cycleLabel">Plano de exemplo · 4 semanas</div>
+      </div>
+      <div class="headrow">
+        <div class="stime" id="sessTime" style="display:none" title="Tempo total deste treino">0:00</div>
+        <button class="iconbtn" id="btnStop" aria-label="Cronômetro">⏱</button>
+        <button class="iconbtn" id="btnCfg" aria-label="Ajustes">⚙</button>
+      </div>
+    </div>
+    <div class="weeks" id="weeks"></div>
+    <div class="days" id="days"></div>
+  </header>
+
+  <main id="view"></main>
+</div>
+
+<nav class="tabs">
+  <button id="tabTreino" aria-pressed="true">Treino</button>
+  <button id="tabSim" aria-pressed="false">Simulado</button>
+  <button id="tabHist" aria-pressed="false">Histórico</button>
+</nav>
+
+<div class="dock" id="dock">
+  <div class="dockin">
+    <div>
+      <div class="lbl" id="dockLbl">Descanso</div>
+      <div class="time" id="dockTime">0:00</div>
+    </div>
+    <div class="ctrl" id="dockCtrl"></div>
+  </div>
+</div>
+
+<div class="sheet" id="isheet">
+  <div class="panel">
+    <h3 id="iTitulo">Colocar na tela inicial</h3>
+    <div class="plat" id="iPlat" style="display:none"></div>
+    <div class="qrbox">
+      <svg class="qr" viewBox="0 0 33 33" role="img" aria-label="QR com o endereço do app"><rect width="33" height="33" fill="#fff"></rect><path stroke="#12151A" stroke-width="1" d="M2 2.5h7m1 0h1m1 0h2m4 0h1m2 0h2m1 0h7m-29 1h1m5 0h1m1 0h3m2 0h1m2 0h1m5 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m2 0h2m2 0h1m2 0h1m2 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m1 0h1m1 0h2m3 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m6 0h4m2 0h1m2 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m2 0h1m4 0h1m1 0h4m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h2m1 0h2m3 0h2m-18 1h1m1 0h2m1 0h3m4 0h2m3 0h2m3 0h1m2 0h1m1 0h2m-29 1h2m2 0h1m6 0h2m3 0h1m1 0h3m1 0h3m3 0h1m-29 1h1m3 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m4 0h2m-26 1h1m1 0h1m2 0h2m3 0h2m1 0h1m2 0h6m4 0h1m-28 1h4m1 0h2m2 0h3m4 0h1m1 0h1m5 0h2m-26 1h1m2 0h2m2 0h1m1 0h1m2 0h3m3 0h1m1 0h2m3 0h3m-29 1h1m1 0h5m3 0h1m3 0h1m4 0h2m1 0h1m3 0h3m-28 1h1m1 0h1m3 0h1m1 0h2m2 0h1m2 0h1m2 0h2m1 0h3m2 0h1m-28 1h3m1 0h5m2 0h1m3 0h1m2 0h4m2 0h2m1 0h1m-27 1h1m1 0h2m2 0h2m1 0h1m2 0h1m1 0h1m2 0h1m1 0h2m1 0h1m1 0h3m-28 1h1m2 0h5m1 0h2m1 0h1m2 0h2m6 0h2m1 0h1m-25 1h3m2 0h2m3 0h1m4 0h1m1 0h2m1 0h2m2 0h1m-26 1h1m1 0h1m1 0h4m1 0h1m1 0h2m1 0h4m1 0h7m-19 1h2m2 0h3m1 0h5m3 0h5m-29 1h7m1 0h2m1 0h1m1 0h1m3 0h1m1 0h2m1 0h1m1 0h2m1 0h1m-28 1h1m5 0h1m1 0h1m2 0h1m3 0h1m4 0h1m3 0h2m-26 1h1m1 0h3m1 0h1m2 0h3m2 0h1m2 0h1m2 0h5m1 0h1m-27 1h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h2m1 0h2m2 0h1m1 0h3m2 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h2m1 0h1m1 0h3m2 0h1m2 0h1m1 0h1m-29 1h1m5 0h1m3 0h4m5 0h3m1 0h3m1 0h1m-28 1h7m1 0h1m2 0h1m6 0h4m2 0h1m2 0h1"></path></svg>
+      <div class="qrtx">
+        <div class="qt">Endereço do app</div>
+        <div class="qu" id="iUrl">https://mateusvazzoller.github.io/taf/</div>
+        <button id="iCopiar" type="button">Copiar link</button>
+      </div>
+    </div>
+    <div id="iSteps"></div>
+    <div class="btnrow"><button id="iClose">Entendi</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="vsheet">
+  <div class="panel">
+    <h3 id="vTitle">Vídeo</h3>
+    <div id="vPlayer"></div>
+    <p class="vcred" id="vCred" style="display:none"></p>
+    <a class="vlink" id="vOpen" href="#" target="_blank" rel="noopener noreferrer">Abrir vídeo</a>
+    <p class="vsub" id="vSub"></p>
+    <div class="vfield">
+      <label for="vUrl">Link do vídeo do seu professor</label>
+      <input id="vUrl" type="url" inputmode="url" placeholder="https://…"
+             autocapitalize="off" autocorrect="off" spellcheck="false">
+      <p class="vsub">Cole aqui o link que o professor mandar. Depois de salvo, o ▶ deste exercício abre direto esse vídeo.</p>
+    </div>
+    <div class="btnrow">
+      <button id="vSave">Salvar link</button>
+      <button id="vClear" class="danger">Remover link salvo</button>
+      <button id="vClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="rsheet">
+  <div class="panel">
+    <h3>Como foi este treino?</h3>
+    <p class="vsub" style="margin:-8px 0 15px">Fica guardado no histórico. É o que o professor precisa saber para
+      decidir se aumenta ou segura a carga.</p>
+    <div class="rpe" id="rpeBtns">
+      <button data-r="1"><em>😌</em><span><b>Tranquilo</b><i>Terminei com gás de sobra</i></span></button>
+      <button data-r="2"><em>😤</em><span><b>Na medida</b><i>Puxado, mas cumpri tudo que estava prescrito</i></span></button>
+      <button data-r="3"><em>🥵</em><span><b>Pesado demais</b><i>Não consegui manter o que estava na planilha</i></span></button>
+    </div>
+    <div class="btnrow"><button id="rSkip">Concluir sem responder</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="panel">
+    <h3>Ajustes e dados</h3>
+    <div class="opt">
+      <div><div class="ot">Versão do app</div><div class="od" id="verInfo">verificando…</div></div>
+      <button class="mini" id="btnVer">Procurar<br>atualização</button>
+    </div>
+    <div class="opt">
+      <div><div class="ot">Dia da prova</div><div class="od">Liga a contagem regressiva na capa</div></div>
+      <input type="date" id="inProva" class="dateip" aria-label="Data da prova">
+    </div>
+    <div class="opt">
+      <div><div class="ot">Tema</div><div class="od">Automático segue o modo do celular</div></div>
+      <div class="seg" id="segTema" role="group" aria-label="Tema do app">
+        <button data-t="auto">Auto</button>
+        <button data-t="light">Claro</button>
+        <button data-t="dark">Escuro</button>
+      </div>
+    </div>
+    <div class="opt">
+      <div><div class="ot">Manter a tela ligada</div><div class="od">Impede o celular de apagar durante o treino</div></div>
+      <button class="sw" id="swWake" aria-pressed="false"><i></i></button>
+    </div>
+    <div class="opt">
+      <div><div class="ot">Som e vibração</div><div class="od">Avisa quando o descanso termina</div></div>
+      <button class="sw" id="swSound" aria-pressed="true"><i></i></button>
+    </div>
+    <div class="opt">
+      <div><div class="ot">Tipo de aviso</div><div class="od">Toque para ouvir cada um</div></div>
+      <div class="seg" id="segSom" role="group" aria-label="Tipo de aviso sonoro">
+        <button data-s="despertador">Despertador</button>
+        <button data-s="apito">Apito</button>
+        <button data-s="gongo">Gongo</button>
+      </div>
+    </div>
+    <p class="hint" style="margin:8px 0 0">Sons do Wikimedia Commons: “Alarmclock-mechanical” de Dub
+      (CC BY-SA 3.0); apito de árbitro de SpliceSound e “Gong or bell vibrant” de stephan (domínio público).</p>
+    <div class="opt">
+      <div><div class="ot">Descanso automático</div><div class="od">Inicia a contagem ao marcar uma série</div></div>
+      <button class="sw" id="swAuto" aria-pressed="true"><i></i></button>
+    </div>
+    <div class="btnrow">
+      <button id="btnInstall">Colocar na tela inicial</button>
+      <button id="btnExport">Exportar backup</button>
+      <button id="btnImport">Importar backup</button>
+      <button id="btnResetSession" class="danger">Zerar sessão atual</button>
+      <button id="btnResetAll" class="danger">Apagar todos os dados</button>
+    </div>
+    <p class="hint">Tudo fica salvo só neste aparelho, no navegador. Faça um backup antes de trocar de celular ou limpar os dados do navegador.</p>
+    <div class="btnrow"><button id="btnClose">Fechar</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   PLANO DE EXEMPLO — feito para ser jogado fora
+   Isto NÃO é treino prescrito por ninguém: é o mínimo para o app abrir
+   com conteúdo enquanto o Meu Treino ainda não sabe carregar planos de
+   verdade. Os exercícios foram escolhidos entre os que já têm vídeo
+   verificado em VIDEO, para o botão ▶ funcionar de saída.
+   Ver CLAUDE.md, "O plano precisa virar dado".
+
+   Formato de cada bloco: `sem` traz as 4 semanas, `s` = nº de séries,
+   `r` = descanso em segundos, `rt` = descanso como o professor escreveu.
+   ============================================================ */
+var eq = function(o){ return [o,o,o,o]; };
+var pair = function(a,b){ return [a,a,b,b]; };
+
+var PLAN = [
+{ id:"a", dia:"Dia 1", nome:"Treino A", foco:"Exemplo · inferior", kind:"Academia",
+  blocos:[
+    { id:"b1", t:"Agachamento", sem: eq({ s:3, r:90,
+        it:[{n:"Agachamento", p:"10 repetições", reg:{t:"kg"}}] }) },
+    { id:"b2", t:"Agachamento búlgaro", sem: eq({ s:3, r:90,
+        it:[{n:"Agachamento búlgaro", p:"10 reps por perna", reg:{t:"kg"}}] }) },
+    { id:"b3", t:"Prancha", sem: eq({ s:3, r:60,
+        it:[{n:"Prancha", p:"tempo máximo", reg:{t:"seg"}}] }) }
+  ]},
+
+{ id:"b", dia:"Dia 2", nome:"Treino B", foco:"Exemplo · superior", kind:"Academia",
+  blocos:[
+    { id:"b1", t:"Puxada alta", sem: eq({ s:3, r:90,
+        it:[{n:"Puxada alta + isometria", p:"10 repetições", reg:{t:"kg"}}] }) },
+    { id:"b2", t:"Desenvolvimento", sem: eq({ s:3, r:90,
+        it:[{n:"Desenvolvimento (press)", p:"10 repetições", reg:{t:"kg"}}] }) },
+    { id:"b3", t:"Ombros", sem: eq({ s:3, r:60,
+        it:[{n:"Elevação lateral", p:"12 repetições", reg:{t:"kg"}},
+            {n:"Posterior de ombro", p:"12 repetições", reg:{t:"kg"}}] }) }
+  ]},
+
+{ id:"c", dia:"Dia 3", nome:"Treino C", foco:"Exemplo · condicionamento", kind:"Extra",
+  blocos:[
+    { id:"b1", t:"Circuito", tipo:"Complexo", sem: eq({ s:3, r:120,
+        it:[{n:"Burpee com salto", p:"10 repetições"},
+            {n:"Salto na caixa", p:"10 repetições"},
+            {n:"Farmer carry", p:"30 m", reg:{t:"kg"}}] }) },
+    { id:"b2", t:"Abdômen", sem: eq({ s:3, r:60,
+        it:[{n:"Hollow hold", p:"tempo máximo", reg:{t:"seg"}}] }) }
+  ]}
+];
+
+/* Busca de vídeo por exercício. Não há link fixo: o ícone abre a busca
+   pronta no YouTube, e o link que você salvar passa a ter prioridade.
+   Corrida, sprint e bike ficam de fora — não precisam de tutorial. */
+var VID = {
+  "Tornozelos":"mobilidade de tornozelo exercício aquecimento",
+  "Agachamento búlgaro":"agachamento búlgaro como fazer técnica",
+  "Agachamento":"agachamento livre técnica execução",
+  "Salto na caixa":"box jump salto na caixa técnica",
+  "Salto com halteres":"agachamento com salto halteres técnica",
+  "Sled push":"sled push empurrar trenó técnica",
+  "Burpee com salto":"burpee com salto como fazer técnica",
+  "Abdominal remador":"abdominal remador como fazer execução",
+  "Abdominal remador lento":"abdominal remador como fazer execução",
+  "Prancha":"prancha abdominal execução correta",
+  "Prancha com braços estendidos":"prancha com braços estendidos execução",
+  "Hollow hold":"hollow hold como fazer execução",
+  "Pull-up escapular":"scapular pull up pull up escapular como fazer",
+  "Elevação lateral":"elevação lateral de ombro execução correta",
+  "Elevação frontal":"elevação frontal de ombro execução correta",
+  "Desenvolvimento (press)":"desenvolvimento de ombro com halteres execução",
+  "Posterior de ombro":"crucifixo inverso posterior de ombro execução",
+  "Barra fixa — máximo de repetições":"barra fixa técnica pegada pronada como fazer",
+  "Barra fixa — máximo":"barra fixa negativa saltando como fazer",
+  "Prática de subida de corda":"subida na corda técnica travamento dos pés",
+  "Remada na argola + isometria":"remada invertida na argola execução",
+  "Remada na argola com pés elevados + isometria":"remada na argola pés elevados execução",
+  "Slam ball":"slam ball arremesso de bola como fazer",
+  "Puxada alta + isometria":"puxada alta no pulley execução correta",
+  "Farmer carry":"farmer walk caminhada do fazendeiro execução",
+  "Tempo máximo pendurado na barra":"dead hang pendurado na barra pegada",
+  "Tempo máximo pendurado":"dead hang pendurado na barra pegada",
+  "Dragon flag":"dragon flag como fazer progressão",
+  "Star plank":"star plank prancha lateral execução",
+  "Remador — 1:00":"técnica no remador ergômetro remo indoor"
+};
+
+/* Vídeo curado por exercício: id do YouTube + título e canal (crédito).
+   IDs verificados um a um via oEmbed em 10/08/2026 — se trocar, verifique
+   de novo. O link salvo pelo usuário (S.vid) continua tendo prioridade. */
+var VIDEO = {
+  "Abdominal remador": { id:"vsiv3AHrLeE", t:"Abdominal remador — demonstração", c:"Profe Welter", d:"0:12" },
+  "Abdominal remador lento": { id:"vsiv3AHrLeE", t:"Abdominal remador — demonstração", c:"Profe Welter", d:"0:12" },
+  "Agachamento": { id:"x6vHr2gplRE", t:"Agachamento livre — execução", c:"Academia Performance", d:"0:20" },
+  "Agachamento búlgaro": { id:"LT_nelifZ_k", t:"Agachamento búlgaro com halteres", c:"Luann Brasil", d:"0:11" },
+  "Barra fixa — máximo": { id:"wWfJFHZQnqQ", t:"Barra fixa negativa (pegada pronada)", c:"PA Performance", d:"0:24" },
+  "Barra fixa — máximo de repetições": { id:"ZdJuIIp8Bgg", t:"Barra fixa pronada (com elástico)", c:"Cleyton Nogueira", d:"0:09" },
+  "Burpee com salto": { id:"ajF2DqYYOuo", t:"Burpee — execução", c:"Gabriel Cestaro", d:"0:11" },
+  "Desenvolvimento (press)": { id:"L-iQfHVeuVg", t:"Desenvolvimento de ombros com halteres", c:"MyTrainingPRO", d:"1:01" },
+  "Dragon flag": { id:"oX4mtHkVuuo", t:"Dragon flag — demonstração", c:"The Active Life", d:"0:40" },
+  "Elevação frontal": { id:"jhxLYSm_P-k", t:"Elevação frontal com halteres", c:"MyTrainingPRO", d:"0:56" },
+  "Elevação lateral": { id:"ORparUDksUk", t:"Como realizar elevação lateral com halteres", c:"FisioPrev", d:"1:22" },
+  "Farmer carry": { id:"ooY6pF0H1BA", t:"Farmer walk (caminhada do fazendeiro)", c:"Letícia Alves", d:"0:33" },
+  "Hollow hold": { id:"gxMMdn0C3tM", t:"Hollow hold (posição de canoinha)", c:"Carlos Klein", d:"0:11" },
+  "Posterior de ombro": { id:"fpb0ir_8tP4", t:"Crucifixo inverso para posterior de ombro", c:"Treinador Buda", d:"1:06" },
+  "Prancha": { id:"qNRqGqESAWU", t:"Como fazer abdominal prancha", c:"Leandro Twin", d:"1:55" },
+  "Prancha com braços estendidos": { id:"L0L79lq7adw", t:"Prancha com braços estendidos", c:"Zé Personal Floripa", d:"1:02" },
+  "Prática de subida de corda": { id:"_R4Du__kHnU", t:"Escalada na corda — TAF", c:"Lelisson Trainer", d:"0:23" },
+  "Pull-up escapular": { id:"2f97pFlCLQk", t:"Tactical pull-up (ativação escapular)", c:"BPro Treinamento", d:"1:55" },
+  "Puxada alta + isometria": { id:"mMO1HD4Lj3s", t:"Puxada alta na polia com corda", c:"Eli Personal", d:"0:15" },
+  "Remada na argola + isometria": { id:"HFL58XnL5s4", t:"Ring row / remada nas argolas", c:"Dicas do Salgueiro", d:"0:47" },
+  "Remada na argola com pés elevados + isometria": { id:"HFL58XnL5s4", t:"Ring row / remada nas argolas", c:"Dicas do Salgueiro", d:"0:47" },
+  "Remador — 1:00": { id:"5IDVhIEfmNg", t:"Remo — execução no aparelho", c:"Adonias Rodrigues", d:"0:15" },
+  "Salto com halteres": { id:"XOTO2qWRy9U", t:"Agachamento com salto com halteres", c:"Bodybuilding.com", d:"1:05" },
+  "Salto na caixa": { id:"FC9803PT-o4", t:"Como aprender box jump (salto na caixa)", c:"Coach Walisson", d:"1:50" },
+  "Slam ball": { id:"caXJOY6CblQ", t:"Como usar slam ball", c:"Odin Fit", d:"1:25" },
+  "Sled push": { id:"Y2rGMOXBuRA", t:"Empurrar trenó (sled push)", c:"Glauco Kruger", d:"0:13" },
+  "Star plank": { id:"IzFzyemwOlM", t:"Prancha estrela (star plank)", c:"Matheus Navarro PSW", d:"1:44" },
+  "Tempo máximo pendurado": { id:"0Bx_Ap7-EwU", t:"Dead hang — demonstração", c:"OPEX Fitness", d:"0:12" },
+  "Tempo máximo pendurado na barra": { id:"0Bx_Ap7-EwU", t:"Dead hang — demonstração", c:"OPEX Fitness", d:"0:12" },
+  "Tornozelos": { id:"ACzi_1jpEEk", t:"Mobilidade de tornozelo", c:"Mais leve com a Jaque", d:"0:32" }
+};
+
+var REG = {
+  kg:    { lbl:"Carga",  unid:"kg", mode:"decimal", ph:"kg" },
+  reps:  { lbl:"Reps",   unid:"",   mode:"numeric", ph:"reps" },
+  seg:   { lbl:"Tempo",  unid:"s",  mode:"numeric", ph:"s", crono:true },
+  tempo: { lbl:"Tempo",  unid:"",   mode:"text",    ph:"m:ss", crono:true },
+  m:     { lbl:"Metros", unid:"m",  mode:"numeric", ph:"m" }
+};
+
+/* ============================================================
+   Estado
+   ============================================================ */
+var KEY = "meu-treino-v1";
+/* "tab" entra aqui para o app voltar na aba em que você estava: sem isso,
+   recarregar a página no Histórico ou no Simulado jogava você no Treino. */
+var FIELDS = ["week","day","tab","done","logs","notas","sess","vid","taf","ini"];
+var S = { week:1, day:0, tab:"treino", done:{}, logs:{}, notas:{}, sess:{}, vid:{}, ini:{},
+          taf:{ metas:{}, tests:[] },
+          cfg:{ wake:false, som:true, somTipo:"despertador", auto:true, tema:"auto" } };
+
+/* ============================================================
+   PROVAS DE EXEMPLO — junto com PLAN, é o outro pedaço que precisa
+   virar dado do plano em vez de código. Hoje aqui estão as cinco
+   provas do TAF da PCPR, que foi de onde este app nasceu; cada
+   professor/concurso tem as suas.
+
+   O que NÃO muda: as METAS não vêm daqui. Os índices mudam por idade
+   e sexo, então quem digita é o usuário, com o edital na mão. O app
+   só compara o resultado com o que ele colocou — não inventa número
+   de prova nenhum.
+   ============================================================ */
+var PROVAS = [
+  { id:"barra",   n:"Barra fixa",            s:"Máximo de repetições",        u:"reps", dir:1,  ph:"reps" },
+  { id:"abd",     n:"Abdominal remador",     s:"Repetições em 1 minuto",      u:"reps", dir:1,  ph:"reps",  timer:60 },
+  { id:"corrida", n:"Corrida de 12 minutos", s:"Distância percorrida",        u:"m",    dir:1,  ph:"metros", timer:720 },
+  { id:"shuttle", n:"Shuttle run",           s:"Tempo — quanto menor, melhor", u:"s",   dir:-1, ph:"segundos", dec:true },
+  { id:"corda",   n:"Escalada em corda",     s:"Conseguiu subir?",            u:"",     dir:1,  bool:true }
+];
+var RPEL = { 1:"😌 Tranquilo", 2:"😤 Na medida", 3:"🥵 Pesado demais" };
+
+function load(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(!raw) return;
+    var o = JSON.parse(raw);
+    FIELDS.forEach(function(k){ if(o[k]!=null) S[k]=o[k]; });
+    if(o.cfg) for(var c in o.cfg) S.cfg[c]=o.cfg[c];
+  }catch(e){}
+}
+function snapshot(){
+  var o = { v:1, cfg:S.cfg };
+  FIELDS.forEach(function(k){ o[k]=S[k]; });
+  return o;
+}
+var saveT=null;
+function save(){
+  clearTimeout(saveT);
+  saveT = setTimeout(function(){
+    try{ localStorage.setItem(KEY, JSON.stringify(snapshot())); }catch(e){}
+  },160);
+}
+
+function sess(w,d){ return PLAN[d]; }
+function wIdx(){ return S.week-1; }
+function bs(bloco,w){ return bloco.sem[w-1]; }
+function kDone(w,d,b,i){ return "w"+w+"|"+PLAN[d].id+"|"+b+"|"+i; }
+function kLog(w,d,b,it,i){ return "w"+w+"|"+PLAN[d].id+"|"+b+"|"+it+"|"+i; }
+function kSess(w,d){ return "w"+w+"|"+PLAN[d].id; }
+
+function totalSets(w,d){
+  return PLAN[d].blocos.reduce(function(a,b){ return a + bs(b,w).s; },0);
+}
+function doneSets(w,d){
+  var n=0;
+  PLAN[d].blocos.forEach(function(b){
+    var q=bs(b,w).s;
+    for(var i=0;i<q;i++) if(S.done[kDone(w,d,b.id,i)]) n++;
+  });
+  return n;
+}
+function weekProgress(w){
+  var t=0,f=0;
+  for(var d=0;d<PLAN.length;d++){ t+=totalSets(w,d); f+=doneSets(w,d); }
+  return t? f/t : 0;
+}
+
+/* ============================================================
+   Utilitários
+   ============================================================ */
+function fmt(sec){
+  sec = Math.max(0, Math.round(sec));
+  var m = Math.floor(sec/60), s = sec%60;
+  return m + ":" + (s<10?"0":"") + s;
+}
+/* passa de uma hora vira h:mm:ss — treino longo não pode virar "83:12" */
+function fmtLongo(sec){
+  sec = Math.max(0, Math.round(sec));
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if(!h) return m + ":" + (s<10?"0":"") + s;
+  return h + ":" + (m<10?"0":"") + m + ":" + (s<10?"0":"") + s;
+}
+function esc(str){
+  return String(str).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
+  });
+}
+function el(html){
+  var t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+function hoje(){
+  var d = new Date();
+  var p = function(n){ return (n<10?"0":"")+n; };
+  return p(d.getDate())+"/"+p(d.getMonth()+1)+" · "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function dataBr(){
+  var d = new Date(), p = function(n){ return (n<10?"0":"")+n; };
+  return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear();
+}
+/* número curto, com vírgula decimal e sem zero à toa */
+function fmtNum(n){
+  n = Math.round(n*100)/100;
+  return String(n).replace(".",",");
+}
+/* dias que faltam para a prova; null se a data não foi definida */
+function diasProva(){
+  var s = S.cfg.prova;
+  if(!s) return null;
+  var p = String(s).split("-");
+  if(p.length!==3) return null;
+  var alvo = new Date(+p[0], +p[1]-1, +p[2]);
+  if(isNaN(alvo.getTime())) return null;
+  var hj = new Date(); hj.setHours(0,0,0,0); alvo.setHours(0,0,0,0);
+  return Math.round((alvo-hj)/86400000);
+}
+function dataProvaBr(){
+  var s = S.cfg.prova;
+  if(!s) return "";
+  var p = String(s).split("-");
+  return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0] : "";
+}
+/* trecho curto para o resumo da sessão */
+function faltamTxt(){
+  var n = diasProva();
+  if(n===null || n<0) return "";
+  if(n===0) return " · a prova é hoje";
+  return " · prova em "+n+(n===1?" dia":" dias");
+}
+
+/* ---------- som e vibração ----------
+   O aviso é um som gravado (pasta sons/), não um bipe sintetizado: toque
+   monofônico soa a brinquedo e cansa em três séries. A síntese ficou só
+   como rede de segurança para quando o arquivo não estiver disponível. */
+var actx=null;
+function ac(){
+  if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==="suspended") actx.resume();
+  return actx;
+}
+/* pulso curto e cortado, o "bip" limpo de alarme de celular */
+function pulso(freq, t0, dur, vol){
+  var a = ac();
+  function voz(f, v, tipo){
+    var g = a.createGain();
+    g.gain.setValueAtTime(.0001, t0);
+    g.gain.exponentialRampToValueAtTime(v, t0+.006);
+    g.gain.setValueAtTime(v, t0+Math.max(dur-.03,.02));
+    g.gain.exponentialRampToValueAtTime(.0001, t0+dur);
+    g.connect(a.destination);
+    var o = a.createOscillator();
+    o.type = tipo; o.frequency.value = f;
+    o.connect(g); o.start(t0); o.stop(t0+dur+.03);
+  }
+  voz(freq, vol, "triangle");
+  voz(freq*3, vol*.22, "sine");   /* só um brilho por cima, para cortar o ruído da academia */
+}
+/* Sons de verdade, gravados: os arquivos ficam em sons/ e o service worker
+   guarda junto com o app, então continuam funcionando sem internet. Cada
+   opção é um arquivo só — o aviso de fim toca inteiro, a confirmação e a
+   contagem 3-2-1 tocam só o começo dele, mais baixo. Autoria e licença de
+   cada um estão em sons/CREDITOS.txt. */
+var SONS = ["despertador","apito","gongo"];
+var BUF = {};
+function carregaSom(tipo){
+  if(BUF[tipo]) return Promise.resolve(BUF[tipo]);
+  return fetch("sons/"+tipo+".mp3")
+    .then(function(r){ if(!r.ok) throw new Error("som"); return r.arrayBuffer(); })
+    .then(function(bytes){
+      return new Promise(function(ok, falhou){
+        var p = ac().decodeAudioData(bytes, ok, falhou);
+        if(p && p.then) p.then(ok, falhou);   /* navegadores novos devolvem promessa */
+      });
+    })
+    .then(function(buf){ BUF[tipo]=buf; return buf; });
+}
+/* dur = quanto tocar (0 = tudo); vol = 0 a 1 */
+function tocaSom(dur, vol){
+  var tipo = S.cfg.somTipo;
+  if(SONS.indexOf(tipo)<0) tipo = SONS[0];
+  carregaSom(tipo).then(function(buf){
+    var a = ac(), src = a.createBufferSource(), g = a.createGain(), t = a.currentTime + .01;
+    src.buffer = buf;
+    g.gain.setValueAtTime(vol, t);
+    if(dur){                                  /* corta com um fade curtinho, senão estala */
+      g.gain.setValueAtTime(vol, t+Math.max(dur-.05,.01));
+      g.gain.linearRampToValueAtTime(.0001, t+dur);
+    }
+    src.connect(g); g.connect(a.destination);
+    if(dur) src.start(t, 0, dur); else src.start(t);
+  }).catch(function(){
+    /* sem o arquivo (primeira abertura offline): cai no bipe sintetizado */
+    var t = ac().currentTime + .02;
+    for(var i=0;i<3;i++) pulso(880, t+i*.14, .085, vol*.22);
+  });
+}
+function vibra(p){
+  try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){}
+}
+function beep(n){
+  if(!S.cfg.som) return;
+  var forte = (n||3) >= 3;
+  vibra(forte ? [200,110,200,110,200] : [110]);
+  try{ tocaSom(forte ? 0 : .55, forte ? 1 : .75); }catch(e){}
+}
+/* contagem final (3, 2, 1): só a pontinha do som, baixinho — tem que dar
+   para diferenciar "está acabando" de "acabou" sem olhar a tela */
+function tick(){
+  if(!S.cfg.som) return;
+  vibra(40);
+  try{ tocaSom(.13, .40); }catch(e){}
+}
+/* No primeiro toque na tela o navegador libera o áudio: aproveita para já
+   baixar e decodificar o som escolhido, senão o primeiro aviso atrasa. */
+document.addEventListener("pointerdown", function(){
+  try{ ac(); carregaSom(SONS.indexOf(S.cfg.somTipo)<0 ? SONS[0] : S.cfg.somTipo); }catch(e){}
+}, { once:true });
+
+/* ---------- tela ligada ---------- */
+var wakeLock=null;
+async function applyWake(){
+  if(S.cfg.wake && "wakeLock" in navigator){
+    try{ if(!wakeLock){ wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", function(){ wakeLock=null; }); } }catch(e){}
+  } else if(wakeLock){
+    try{ await wakeLock.release(); }catch(e){}
+    wakeLock=null;
+  }
+}
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState!=="visible"){
+    /* saindo da frente no meio de um descanso: liga o som inaudível, senão o
+       aparelho desliga o áudio do app e o aviso marcado não sairia na hora */
+    if(T.mode==="rest" && T.running) segurarAudio(true);
+    return;
+  }
+  segurarAudio(false);          /* de volta na tela, não precisa mais segurar */
+  applyWake();
+  /* religa o áudio, se o aparelho o tiver desligado, e reacerta o relógio */
+  if(T.mode==="rest" && T.running){ try{ ac(); }catch(e){} }
+  if(T.mode && T.running) loop();
+  /* e aproveita para ver se saiu versão nova do app */
+  if(swReg) swReg.update().catch(function(){});
+});
+
+/* ============================================================
+   Cronômetro (descanso regressivo + cronômetro progressivo)
+   ============================================================ */
+/* O tempo vem sempre do relógio do aparelho (Date.now), nunca de deltas
+   acumulados: se a tela apagar ou você trocar de app no meio do descanso,
+   a contagem continua certa quando voltar. */
+var T = { mode:null, anchor:0, held:0, running:false, id:null, target:null, rang:false,
+          lastSec:0, inicial:0, agenda:[], agendaOk:false, fimAudio:0, ger:0 };
+var dock = document.getElementById("dock");
+var dockTime = document.getElementById("dockTime");
+var dockLbl = document.getElementById("dockLbl");
+var dockCtrl = document.getElementById("dockCtrl");
+
+function tLeft(){
+  if(T.mode!=="rest") return 0;
+  return T.running ? Math.max(0,(T.anchor - Date.now())/1000) : T.held;
+}
+function tUp(){
+  if(T.mode!=="up") return 0;
+  return T.running ? (Date.now() - T.anchor)/1000 : T.held;
+}
+function setLeft(sec){
+  T.held = Math.max(0,sec);
+  if(T.running) T.anchor = Date.now() + T.held*1000;
+}
+
+/* ---------- descanso que continua valendo com o app minimizado ----------
+   Ao trocar de app ou apagar a tela, o navegador congela o JavaScript da
+   página: o setInterval abaixo para de rodar e o aviso de fim de descanso
+   sairia atrasado ou nem sairia. Duas coisas resolvem isso:
+
+   1) o som do fim (e a contagem 3-2-1) fica marcado na hora certa direto na
+      placa de áudio, que roda em outra linha de execução e não congela junto;
+   2) no instante em que o app sai da frente, um som inaudível começa a tocar
+      em looping — sem isso o aparelho desliga o áudio do app e a marcação
+      acima ficaria esperando. Ele só toca com o app fora da tela, para não
+      atrapalhar música tocando durante o treino, e para no momento em que
+      você volta.
+
+   Quando você volta para o app, o tempo é recalculado pelo relógio do
+   aparelho de qualquer jeito, então a conta nunca fica errada. */
+var keepSrc = null;
+function segurarAudio(ligar){
+  try{
+    if(ligar){
+      if(keepSrc) return;
+      var a = ac(), n = Math.floor(a.sampleRate*2), buf = a.createBuffer(1, n, a.sampleRate);
+      var d = buf.getChannelData(0);
+      for(var i=0;i<n;i++) d[i] = Math.sin(i/a.sampleRate*2*Math.PI*200) * .0004;  /* −68 dB */
+      var s = a.createBufferSource();
+      s.buffer = buf; s.loop = true; s.connect(a.destination); s.start();
+      keepSrc = s;
+    } else if(keepSrc){
+      try{ keepSrc.stop(); }catch(e){}
+      keepSrc.disconnect(); keepSrc = null;
+    }
+  }catch(e){}
+}
+/* Desmarca o que ainda não tocou. O que já começou a tocar é deixado em paz,
+   senão cancelar cortaria o aviso no meio. */
+function cancelaAgenda(){
+  var agora = actx ? actx.currentTime : 0;
+  T.agenda.forEach(function(x){ if(x.quando > agora + .02){ try{ x.no.stop(); }catch(e){} } });
+  T.agenda = []; T.agendaOk = false; T.ger++;
+}
+function agendaAvisos(){
+  cancelaAgenda();
+  if(!S.cfg.som || T.mode!=="rest" || !T.running) return;
+  var ger = T.ger, tipo = S.cfg.somTipo;
+  if(SONS.indexOf(tipo)<0) tipo = SONS[0];
+  carregaSom(tipo).then(function(buf){
+    if(ger!==T.ger || T.mode!=="rest" || !T.running) return;   /* mudou enquanto carregava */
+    var a = ac(), falta = tLeft();
+    if(falta<=0) return;
+    var fim = a.currentTime + falta;          /* o instante do fim, no relógio do áudio */
+    function marca(quando, dur, vol){
+      if(quando < a.currentTime + .05) return;
+      var src = a.createBufferSource(), g = a.createGain();
+      src.buffer = buf;
+      g.gain.setValueAtTime(vol, quando);
+      if(dur){
+        g.gain.setValueAtTime(vol, quando+Math.max(dur-.05,.01));
+        g.gain.linearRampToValueAtTime(.0001, quando+dur);
+      }
+      src.connect(g); g.connect(a.destination);
+      if(dur) src.start(quando, 0, dur); else src.start(quando);
+      T.agenda.push({ no:src, quando:quando });
+    }
+    marca(fim-3, .13, .40); marca(fim-2, .13, .40); marca(fim-1, .13, .40);
+    marca(fim, 0, 1);
+    T.fimAudio = fim;
+    T.agendaOk = T.agenda.length > 0;
+  }).catch(function(){});
+}
+
+function loop(){
+  if(!T.running) return;
+  if(T.mode==="rest"){
+    var left = tLeft();
+    if(left<=0){
+      /* com o app minimizado o som já saiu sozinho pela agenda; aqui só falta
+         a vibração e a tela. Se o áudio ficou para trás, toca agora. */
+      var jaSaiu = T.agendaOk && actx && actx.currentTime >= T.fimAudio - .05;
+      T.running=false; T.held=0; T.rang=true;
+      stopLoop(); cancelaAgenda(); segurarAudio(false);
+      if(jaSaiu){ if(S.cfg.som) vibra([200,110,200,110,200]); } else beep(3);
+      dock.classList.remove("soon"); dock.classList.add("ring"); render_dock();
+      setTimeout(function(){ if(T.rang) closeDock(); }, 8000);
+      return;
+    }
+    /* contagem falada em bipes: 3, 2, 1 — dá para treinar sem olhar a tela */
+    var s = Math.ceil(left);
+    if(s<=3 && s>=1 && T.lastSec!==s){
+      T.lastSec=s;
+      if(T.agendaOk){ if(S.cfg.som) vibra(40); } else tick();
+    }
+    dock.classList.toggle("soon", left<=5);
+  }
+  render_dock();
+}
+function startLoop(){ if(!T.id) T.id = setInterval(loop, 250); }
+function stopLoop(){ if(T.id){ clearInterval(T.id); T.id=null; } }
+function toggleRun(){
+  if(T.running){
+    T.held = T.mode==="rest" ? tLeft() : tUp();
+    T.running=false; stopLoop(); cancelaAgenda(); segurarAudio(false);
+  } else {
+    T.running=true;
+    T.anchor = T.mode==="rest" ? Date.now()+T.held*1000 : Date.now()-T.held*1000;
+    startLoop();
+    if(T.mode==="rest") agendaAvisos();
+  }
+  render_dock();
+}
+function startRest(sec,label){
+  if(!sec || sec<=0) return;
+  T.mode="rest"; T.held=sec; T.running=true; T.anchor=Date.now()+sec*1000;
+  T.rang=false; T.target=null; T.lastSec=0; T.inicial=sec;
+  dock.classList.remove("ring","soon"); dock.classList.add("open");
+  dockLbl.textContent = label || "Descanso";
+  render_dock(); startLoop(); agendaAvisos();
+}
+function startUp(target,label){
+  T.mode="up"; T.held=0; T.running=true; T.anchor=Date.now();
+  T.rang=false; T.target=target||null; T.lastSec=0;
+  cancelaAgenda(); segurarAudio(false);
+  dock.classList.remove("ring","soon"); dock.classList.add("open");
+  dockLbl.textContent = label || "Cronômetro";
+  render_dock(); startLoop();
+}
+function closeDock(){
+  T.running=false; T.rang=false; T.mode=null; T.target=null; T.held=0; T.lastSec=0;
+  stopLoop(); cancelaAgenda(); segurarAudio(false);
+  dock.classList.remove("open","ring","soon");
+}
+/* Volta o cronômetro ao ponto de partida e deixa parado, esperando o play:
+   é o "stop" — no descanso volta ao tempo cheio, no cronômetro volta a zero. */
+function zeraTempo(){
+  T.running = false; stopLoop(); T.lastSec = 0; T.rang = false;
+  cancelaAgenda(); segurarAudio(false);
+  T.held = T.mode==="rest" ? (T.inicial||0) : 0;
+  dock.classList.remove("ring","soon");
+  render_dock();
+}
+function render_dock(){
+  dockTime.textContent = T.mode==="rest" ? fmt(tLeft()) : fmt(tUp());
+  var b = [];
+  if(T.mode==="rest"){
+    if(T.rang){
+      b.push(['pri','Ok', closeDock]);
+    } else {
+      b.push(['','−15', function(){ setLeft(tLeft()-15); T.lastSec=0; agendaAvisos(); render_dock(); loop(); }]);
+      b.push(['','+15', function(){ setLeft(tLeft()+15); T.lastSec=0; agendaAvisos(); render_dock(); }]);
+      b.push(['','■', zeraTempo]);
+      b.push(['', T.running?'❚❚':'▶', toggleRun]);
+      b.push(['pri','Pular', closeDock]);
+    }
+  } else {
+    b.push(['','■', zeraTempo]);
+    b.push(['', T.running?'❚❚':'▶', toggleRun]);
+    if(T.target){
+      b.push(['pri','Salvar', function(){
+        var v = Math.round(tUp());
+        var inp = document.querySelector('[data-log="'+T.target+'"]');
+        if(inp){ inp.value = inp.dataset.kind==="tempo" ? fmt(v) : String(v);
+                 S.logs[T.target] = inp.value; save(); }
+        closeDock(); renderHead();
+      }]);
+    } else {
+      b.push(['pri','Fechar', closeDock]);
+    }
+  }
+  dockCtrl.innerHTML = "";
+  b.forEach(function(spec){
+    var btn = document.createElement("button");
+    if(spec[0]) btn.className = spec[0];
+    btn.textContent = spec[1];
+    btn.addEventListener("click", spec[2]);
+    dockCtrl.appendChild(btn);
+  });
+}
+
+/* ============================================================
+   Tempo total do treino
+   Começa sozinho quando a primeira série da sessão é marcada e para
+   quando o treino é concluído. Assim como o cronômetro de descanso, o
+   tempo sai da diferença de relógio (Date.now), não de contagem
+   acumulada: fechar o app ou apagar a tela no meio não atrapalha.
+   ============================================================ */
+var sessTimeEl = document.getElementById("sessTime");
+
+function marcaInicio(w,d){
+  var nk = kSess(w,d);
+  if(!S.ini[nk]) S.ini[nk] = Date.now();
+}
+/* Segundos decorridos, ou null quando não há treino em andamento — seja
+   porque ainda não começou, seja porque já foi concluído. Ao concluir, o
+   total vai para o registro da sessão (botão "Concluído" e Histórico) e o
+   relógio do topo some: deixá-lo parado marcando o tempo do treino passado
+   dava a impressão de que não tinha zerado. */
+function tempoSessao(w,d){
+  var nk = kSess(w,d);
+  if(S.sess[nk]) return null;                     /* concluído */
+  var t0 = S.ini[nk];
+  return t0 ? (Date.now()-t0)/1000 : null;
+}
+function renderSessTime(){
+  var seg = tempoSessao(S.week, S.day);
+  if(seg === null){ sessTimeEl.style.display = "none"; return; }
+  sessTimeEl.style.display = "";
+  sessTimeEl.textContent = fmtLongo(seg);
+}
+setInterval(renderSessTime, 1000);
+
+/* ============================================================
+   Render — cabeçalho
+   ============================================================ */
+var weeksEl = document.getElementById("weeks");
+var daysEl  = document.getElementById("days");
+var viewEl  = document.getElementById("view");
+
+function renderHead(){
+  weeksEl.innerHTML = "";
+  for(var w=1; w<=4; w++){
+    (function(w){
+      var p = Math.round(weekProgress(w)*100);
+      var b = el('<button class="wk" aria-pressed="'+(S.week===w)+'">'+
+        '<div class="n">'+w+'</div><div class="l">Semana</div>'+
+        '<div class="bar"><i style="width:'+p+'%"></i></div></button>');
+      b.addEventListener("click", function(){ S.week=w; save(); renderHead(); renderView(); window.scrollTo(0,0); });
+      weeksEl.appendChild(b);
+    })(w);
+  }
+
+  daysEl.innerHTML = "";
+  PLAN.forEach(function(sx, d){
+    var tot = totalSets(S.week,d), fez = doneSets(S.week,d);
+    var p = tot ? Math.round(fez/tot*100) : 0;
+    var fin = !!S.sess[kSess(S.week,d)];
+    var b = el('<button class="day" aria-pressed="'+(S.day===d)+'">'+
+      '<div class="k">'+esc(sx.dia)+(fin?' <span class="chk">✓</span>':'')+'</div>'+
+      '<div class="t">'+esc(sx.nome)+'</div>'+
+      '<div class="bar"><i style="width:'+p+'%"></i></div></button>');
+    b.addEventListener("click", function(){
+      S.day=d; S.tab="treino"; save(); renderHead(); renderTabs(); renderView(); window.scrollTo(0,0);
+    });
+    daysEl.appendChild(b);
+  });
+
+  var allDone = true;
+  for(var d2=0; d2<PLAN.length; d2++){ if(!S.sess[kSess(4,d2)]) { allDone=false; break; } }
+  document.getElementById("cycleLabel").textContent =
+    allDone ? "Bloco de 4 semanas concluído" : "Plano de exemplo · 4 semanas";
+
+  renderSessTime();
+}
+
+/* ============================================================
+   Render — sessão de treino
+   ============================================================ */
+function renderView(){
+  if(S.tab==="hist"){ renderHist(); return; }
+  if(S.tab==="sim"){ renderSim(); return; }
+  var d = S.day, w = S.week, sx = PLAN[d];
+  var tot = totalSets(w,d), fez = doneSets(w,d);
+  var pct = tot ? fez/tot : 0;
+  var C = 2*Math.PI*22;
+
+  viewEl.innerHTML = "";
+
+  if(!jaInstalado() && !S.cfg.instalado && !S.cfg.semConvite){
+    var inst = el('<section class="install">'+
+      '<div class="ic">+</div>'+
+      '<div class="tx"><div class="tt">Instalar na tela inicial</div>'+
+      '<div class="dd">Abre como app, sem barra de navegador — e sem depender de você achar o link no meio do treino.</div></div>'+
+      '<button class="go">Instalar</button>'+
+      '<button class="x" aria-label="Dispensar">×</button>'+
+    '</section>');
+    inst.querySelector(".go").addEventListener("click", abrirInstalar);
+    inst.querySelector(".x").addEventListener("click", function(){
+      S.cfg.semConvite = true; save(); renderView();
+    });
+    viewEl.appendChild(inst);
+  }
+
+  var meta = el('<section class="meta">'+
+    '<svg class="ring" width="54" height="54" viewBox="0 0 54 54" aria-hidden="true">'+
+      '<circle class="bg" cx="27" cy="27" r="22"></circle>'+
+      '<circle class="fg" cx="27" cy="27" r="22" transform="rotate(-90 27 27)" '+
+      'stroke-dasharray="'+(C*pct).toFixed(1)+' '+C.toFixed(1)+'"></circle>'+
+      '<text x="27" y="32">'+Math.round(pct*100)+'</text>'+
+    '</svg>'+
+    '<div class="info"><h2>'+esc(sx.nome)+'</h2>'+
+      '<p>'+esc(sx.foco)+'</p>'+
+      '<div class="cnt">'+fez+' de '+tot+' séries · Semana '+w+esc(faltamTxt())+'</div>'+
+    '</div></section>');
+  viewEl.appendChild(meta);
+
+  sx.blocos.forEach(function(b, bi){
+    var cfg = bs(b, w);
+    var nDone = 0;
+    for(var i=0;i<cfg.s;i++) if(S.done[kDone(w,d,b.id,i)]) nDone++;
+    var full = nDone===cfg.s;
+
+    var card = el('<section class="block'+(full?" done":"")+'"></section>');
+
+    /* cabeçalho do bloco */
+    var tags = '<span class="tag">'+(cfg.s>1? cfg.s+(cfg.ritmo?" rodadas":" séries") : "1 série")+'</span>';
+    if(b.tipo) tags += '<span class="tag hot">'+esc(b.tipo)+'</span>';
+    if(cfg.ritmo) tags += '<span class="tag plan">'+esc(cfg.ritmo)+'</span>';
+    else if(cfg.rt) tags += '<span class="tag plan">Descanso '+esc(cfg.rt)+'</span>';
+    else if(cfg.r) tags += '<span class="tag">Descanso '+fmt(cfg.r)+'</span>';
+    card.appendChild(el('<div class="bhead">'+
+      '<div class="bnum">'+(bi+1)+'</div>'+
+      '<div class="btitle"><h3>'+esc(b.t)+'</h3><div class="tags">'+tags+'</div></div>'+
+    '</div>'));
+
+    /* exercícios */
+    var its = '<div class="items">';
+    cfg.it.forEach(function(it){
+      var temVid = !!VID[it.n];
+      its += '<div class="item"><div class="dot"></div><div class="txt">'+
+             '<div class="n">'+esc(it.n)+'</div><div class="p">'+esc(it.p)+'</div></div>'+
+             (temVid ? '<button class="vbtn'+(S.vid[it.n]?" saved":"")+'" data-ex="'+esc(it.n)+'" '+
+                       'aria-label="Vídeo de '+esc(it.n)+'">▶</button>' : '')+
+             '</div>';
+    });
+    its += '</div>';
+    var itemsEl = el(its);
+    itemsEl.querySelectorAll(".vbtn").forEach(function(btn){
+      btn.addEventListener("click", function(){ openVideo(btn.dataset.ex); });
+    });
+    card.appendChild(itemsEl);
+
+    if(b.nota){
+      card.appendChild(el('<div class="note"><b>!</b><span>'+esc(b.nota)+'</span></div>'));
+    }
+
+    /* séries */
+    var sets = el('<div class="sets"><div class="setlabel">'+
+      '<span>'+(cfg.ritmo?"Rodadas concluídas":"Séries concluídas")+'</span>'+
+      '<button type="button">'+(full?"Desmarcar":"Marcar tudo")+'</button></div>'+
+      '<div class="chips"></div></div>');
+    var chips = sets.querySelector(".chips");
+    for(var i=0;i<cfg.s;i++){
+      (function(i){
+        var k = kDone(w,d,b.id,i);
+        var c = el('<button class="chip" aria-pressed="'+(!!S.done[k])+'">'+(i+1)+'</button>');
+        c.addEventListener("click", function(){
+          if(S.done[k]){ delete S.done[k]; }
+          else {
+            S.done[k]=1;
+            marcaInicio(w,d);      /* primeira série marcada = treino começou */
+            if(S.cfg.auto && cfg.r){
+              startRest(cfg.r, cfg.ritmo ? "Próxima rodada · "+b.t : "Descanso · "+b.t);
+            }
+          }
+          save(); renderHead(); renderView();
+        });
+        chips.appendChild(c);
+      })(i);
+    }
+    sets.querySelector(".setlabel button").addEventListener("click", function(){
+      for(var i=0;i<cfg.s;i++){
+        var k = kDone(w,d,b.id,i);
+        if(full) delete S.done[k]; else S.done[k]=1;
+      }
+      if(!full) marcaInicio(w,d);
+      save(); renderHead(); renderView();
+    });
+    card.appendChild(sets);
+
+    /* registros */
+    var comReg = cfg.it.filter(function(it){ return it.reg; });
+    if(comReg.length){
+      var logs = el('<div class="logs"></div>');
+      cfg.it.forEach(function(it, ii){
+        if(!it.reg) return;
+        var meta2 = REG[it.reg.t];
+        var prev = prevSets(d, b.id, ii, w, it.n);
+        var prevTxt = prev ? "S"+prev.w+": "+prev.vals.filter(function(v){return v;}).join(" · ") : "";
+        var box = el('<div class="log"><div class="lh">'+
+          '<span>'+esc(it.n)+' · '+esc(it.reg.lbl||meta2.lbl)+(meta2.unid?" ("+meta2.unid+")":"")+'</span>'+
+          (prev?'<span class="prev">'+esc(prevTxt)+' <button class="mini" type="button" data-rep="1">Repetir</button></span>':'')+
+          '</div><div class="fields"></div></div>');
+        var fields = box.querySelector(".fields");
+        if(prev){
+          box.querySelector('[data-rep]').addEventListener("click", function(){
+            for(var i=0;i<cfg.s;i++){
+              var kk = kLog(w,d,b.id,ii,i);
+              if(!S.logs[kk] && prev.vals[i]) S.logs[kk] = prev.vals[i];
+            }
+            save(); renderView();
+          });
+        }
+        for(var i=0;i<cfg.s;i++){
+          (function(i){
+            var k = kLog(w,d,b.id,ii,i);
+            var ph = (prev && prev.vals[i]) ? prev.vals[i] : meta2.ph;
+            var f = el('<div class="field"><span>'+(cfg.s>1?"Série "+(i+1):"Marca")+'</span>'+
+              '<input inputmode="'+meta2.mode+'" placeholder="'+esc(ph)+'" '+
+              'data-log="'+k+'" data-kind="'+it.reg.t+'" value="'+esc(S.logs[k]||"")+'"></div>');
+            if(meta2.crono){
+              var cb = el('<button class="stop" type="button" aria-label="Cronometrar">⏱</button>');
+              cb.addEventListener("click", function(){ startUp(k, it.n); });
+              f.appendChild(cb);
+            }
+            f.querySelector("input").addEventListener("input", function(ev){
+              var v = ev.target.value.trim();
+              if(v) S.logs[k]=v; else delete S.logs[k];
+              save();
+            });
+            fields.appendChild(f);
+          })(i);
+        }
+        logs.appendChild(box);
+      });
+      card.appendChild(logs);
+    }
+
+    viewEl.appendChild(card);
+  });
+
+  /* anotações */
+  var nk = kSess(w,d);
+  var notes = el('<div class="notes"><label for="nt">Anotações desta sessão</label>'+
+    '<textarea id="nt" placeholder="Como se sentiu, ajustes do professor, o que travou…"></textarea></div>');
+  var ta = notes.querySelector("textarea");
+  ta.value = S.notas[nk] || "";
+  ta.addEventListener("input", function(){
+    if(ta.value.trim()) S.notas[nk]=ta.value; else delete S.notas[nk];
+    save();
+  });
+  viewEl.appendChild(notes);
+
+  /* concluir */
+  var fin = S.sess[nk];
+  var fb = el('<button class="finish'+(fin?" is-done":"")+'">'+
+    (fin? "Concluído em "+esc(fin.data)+(fin.dur!=null?" · "+fmtLongo(fin.dur):"")+
+          (fin.rpe?" · "+RPEL[fin.rpe]:"") : "Concluir treino")+'</button>');
+  fb.addEventListener("click", function(){
+    if(S.sess[nk]){
+      var total = S.sess[nk].dur;
+      delete S.sess[nk];
+      /* reabrindo o treino, o relógio do topo volta de onde parou — e não
+         do horário da primeira série, que pode ter sido dias atrás */
+      if(total != null) S.ini[nk] = Date.now() - total*1000;
+      save(); renderHead(); renderView();
+    }
+    else { rPend = nk; rsheet.classList.add("open"); }
+  });
+  viewEl.appendChild(fb);
+
+  /* fim do bloco */
+  if(w===4){
+    var all = PLAN.every(function(_,dd){ return !!S.sess[kSess(4,dd)]; });
+    if(all){
+      viewEl.appendChild(el('<div class="banner"><h3>Bloco de 4 semanas concluído</h3>'+
+        '<p>Você fechou todas as sessões da semana 4. O plano carregado no app vai só '+
+        'até aqui — peça a continuação ao seu professor. Antes disso, exporte um backup '+
+        'dos seus registros em Ajustes.</p></div>'));
+    }
+  }
+}
+
+/* Última vez que você fez este exercício: procura a semana mais recente
+   antes desta que tenha registro, e devolve série por série (posição
+   preservada) para virar o "fantasma" dentro de cada campo. */
+function prevSets(d, bid, ii, w, nome){
+  var b = PLAN[d].blocos.filter(function(x){ return x.id===bid; })[0];
+  if(!b) return null;
+  for(var pw = w-1; pw >= 1; pw--){
+    var cfg = bs(b, pw);
+    if(!cfg.it[ii] || cfg.it[ii].n !== nome) continue;
+    var vals=[], any=false;
+    for(var i=0;i<cfg.s;i++){
+      var v = S.logs[kLog(pw,d,bid,ii,i)] || "";
+      vals.push(v); if(v) any=true;
+    }
+    if(any) return { w:pw, vals:vals };
+  }
+  return null;
+}
+
+/* ============================================================
+   Render — simulado
+   ============================================================ */
+function tafInit(){
+  if(!S.taf || typeof S.taf!=="object") S.taf = { metas:{}, tests:[] };
+  if(!S.taf.metas || typeof S.taf.metas!=="object") S.taf.metas = {};
+  if(!Array.isArray(S.taf.tests)) S.taf.tests = [];
+  if(!S.ini || typeof S.ini!=="object") S.ini = {};   /* backup antigo não tem */
+}
+function testesDe(id){
+  return S.taf.tests.filter(function(t){ return t.p===id; })
+                    .sort(function(a,b){ return a.ts-b.ts; });
+}
+function metaDe(id){
+  var m = parseFloat(String(S.taf.metas[id]==null?"":S.taf.metas[id]).replace(",","."));
+  return isFinite(m) ? m : null;
+}
+/* true = na meta, false = ainda não, null = sem meta definida */
+function passou(p, v){
+  if(p.bool) return v>=1;
+  var m = metaDe(p.id);
+  if(m===null) return null;
+  return p.dir===1 ? v>=m : v<=m;
+}
+function faltaTxt(p, v){
+  var m = metaDe(p.id);
+  if(m===null) return "";
+  if(p.dir===1){
+    var d = Math.round((m-v)*100)/100;
+    var un = p.u==="m" ? " m" : (d===1?" rep":" reps");
+    return (d===1?"Falta ":"Faltam ")+fmtNum(d)+un;
+  }
+  return "Tirar "+fmtNum(v-m)+" s";
+}
+function addTeste(p, v){
+  tafInit();
+  var ts = testesDe(p.id);
+  var antes = ts.length ? passou(p, ts[ts.length-1].v) : null;
+  S.taf.tests.push({ p:p.id, v:v, d:dataBr(), ts:Date.now() });
+  save();
+  if(passou(p,v)===true && antes!==true) beep(2);
+  renderSim();
+}
+
+function renderSim(){
+  tafInit();
+  viewEl.innerHTML = "";
+
+  /* contagem regressiva para o dia da prova */
+  var dias = diasProva(), cdHtml;
+  if(dias===null){
+    cdHtml = '<section class="cd"><div style="flex:1"><div class="cl">Dia da prova</div>'+
+      '<div class="cp">Coloque a data da prova para o app contar quanto falta.</div></div>'+
+      '<button class="mini" data-act="prova">Definir</button></section>';
+  } else {
+    var lbl = dias>1 ? "dias para a prova" : dias===1 ? "dia para a prova"
+            : dias===0 ? "a prova é hoje" : (dias===-1?"dia desde a prova":"dias desde a prova");
+    cdHtml = '<section class="cd'+(dias>=0&&dias<=30?" hot":"")+'">'+
+      '<div class="big">'+Math.abs(dias)+'</div>'+
+      '<div style="flex:1"><div class="cl">'+lbl+'</div>'+
+      '<div class="cp">'+esc(dataProvaBr())+'</div></div>'+
+      '<button class="mini" data-act="prova">Mudar</button></section>';
+  }
+  var cd = el(cdHtml);
+  cd.querySelector('[data-act="prova"]').addEventListener("click", function(){
+    sheet.classList.add("open");
+    setTimeout(function(){ var i=document.getElementById("inProva"); if(i) i.focus(); }, 150);
+  });
+  viewEl.appendChild(cd);
+
+  /* placar geral: só conta prova que tem meta e resultado */
+  var comMeta=0, batidas=0, faltando=[];
+  PROVAS.forEach(function(p){
+    var ts = testesDe(p.id);
+    if(!ts.length) return;
+    var ok = passou(p, ts[ts.length-1].v);
+    if(ok===null) return;
+    comMeta++;
+    if(ok) batidas++; else faltando.push(p.n);
+  });
+  if(comMeta){
+    viewEl.appendChild(el('<div class="hcard" style="margin-top:10px">'+
+      '<div class="hrow"><div class="nm">'+batidas+' de '+comMeta+' prova'+(comMeta>1?"s":"")+' na meta</div></div>'+
+      '<div style="margin-top:5px;color:var(--ink-2);font-size:13px">'+
+      (faltando.length ? "Ainda abaixo da meta em: "+esc(faltando.join(", "))+
+                         ". Reprovar em uma prova elimina — é aí que vale insistir."
+                       : "Tudo que você registrou está na meta. Falta manter até o dia da prova.")+
+      '</div></div>'));
+  }
+
+  viewEl.appendChild(el('<div class="sec">Provas</div>'));
+
+  PROVAS.forEach(function(p){
+    var ts = testesDe(p.id);
+    var last = ts.length ? ts[ts.length-1] : null;
+    var ok = last ? passou(p, last.v) : null;
+    var card = el('<section class="prova'+(ok===true?" ok":"")+'"></section>');
+
+    var verd = '<span class="verd">Sem registro</span>';
+    if(last && ok===true) verd = '<span class="verd ok">Na meta</span>';
+    else if(last && ok===false) verd = '<span class="verd no">'+esc(p.bool?"Falta subir":faltaTxt(p,last.v))+'</span>';
+    else if(last) verd = '<span class="verd">Sem meta</span>';
+
+    card.appendChild(el('<div class="ph"><div class="pn"><h4>'+esc(p.n)+'</h4>'+
+      '<div class="ps">'+esc(p.s)+'</div></div>'+verd+'</div>'));
+
+    if(last){
+      card.appendChild(el('<div class="now"><b>'+
+        esc(p.bool ? (last.v?"Subiu":"Não subiu") : fmtNum(last.v))+'</b>'+
+        '<span>'+(p.u&&!p.bool?esc(p.u)+' · ':'')+'último em '+esc(last.d)+'</span></div>'));
+
+      if(ts.length>1 && !p.bool){
+        var first = ts[0], dif = last.v - first.v;
+        if(dif!==0 && first.v){
+          var melhor = p.dir===1 ? dif>0 : dif<0;
+          var pctv = Math.round(Math.abs(dif)/Math.abs(first.v)*100);
+          card.appendChild(el('<div class="ev'+(melhor?"":" down")+'">'+
+            esc("1º simulado: "+fmtNum(first.v)+" → agora: "+fmtNum(last.v)+
+                " · "+(melhor?"melhorou ":"caiu ")+pctv+"%")+'</div>'));
+        }
+      }
+    }
+
+    /* registrar um novo resultado */
+    var rowin;
+    if(p.bool){
+      rowin = el('<div class="rowin">'+
+        '<button class="gh" data-v="1">Subiu ✓</button>'+
+        '<button class="gh" data-v="0">Não subiu</button></div>');
+      rowin.querySelectorAll("button").forEach(function(b){
+        b.addEventListener("click", function(){ addTeste(p, b.dataset.v==="1"?1:0); });
+      });
+    } else {
+      rowin = el('<div class="rowin">'+
+        (p.timer?'<button class="gh" data-t="1">⏱ '+fmt(p.timer)+'</button>':'')+
+        '<input inputmode="'+(p.dec?"decimal":"numeric")+'" placeholder="'+esc(p.ph)+'">'+
+        '<button data-add="1">Registrar</button></div>');
+      var inp = rowin.querySelector("input");
+      rowin.querySelector('[data-add]').addEventListener("click", function(){
+        var v = parseFloat(String(inp.value).trim().replace(",","."));
+        if(!isFinite(v)){ alert("Digite o resultado em números — por exemplo, quantos "+p.ph+" você fez."); return; }
+        inp.value = ""; addTeste(p, v);
+      });
+      var tb = rowin.querySelector('[data-t]');
+      if(tb) tb.addEventListener("click", function(){ startRest(p.timer, "Simulado · "+p.n); });
+    }
+    card.appendChild(rowin);
+
+    /* meta do edital */
+    if(!p.bool){
+      var mr = el('<div class="meta2"><label for="m-'+p.id+'">Meta do edital</label>'+
+        '<input id="m-'+p.id+'" inputmode="'+(p.dec?"decimal":"numeric")+'" placeholder="—" '+
+        'value="'+esc(S.taf.metas[p.id]||"")+'">'+
+        '<span class="un">'+esc(p.u)+'</span></div>');
+      var mi = mr.querySelector("input");
+      mi.addEventListener("input", function(){
+        var v = mi.value.trim();
+        if(v) S.taf.metas[p.id]=v; else delete S.taf.metas[p.id];
+        save();
+      });
+      mi.addEventListener("change", function(){ renderSim(); });
+      card.appendChild(mr);
+    }
+
+    /* histórico de simulados desta prova */
+    if(ts.length){
+      var h = el('<div class="hist"></div>');
+      ts.slice().reverse().slice(0,8).forEach(function(t){
+        var row = el('<div class="hl"><span>'+esc(t.d)+'</span>'+
+          '<span>'+esc(p.bool ? (t.v?"Subiu":"Não subiu") : fmtNum(t.v)+(p.u?" "+p.u:""))+
+          ' <button class="del" type="button" aria-label="Apagar este registro">×</button></span></div>');
+        row.querySelector(".del").addEventListener("click", function(){
+          S.taf.tests = S.taf.tests.filter(function(x){ return x.ts!==t.ts; });
+          save(); renderSim();
+        });
+        h.appendChild(row);
+      });
+      card.appendChild(h);
+    }
+
+    viewEl.appendChild(card);
+  });
+
+  viewEl.appendChild(el('<p class="hint" style="margin-top:16px">Os índices mínimos mudam por idade e sexo. '+
+    'Pegue os seus no edital ou com o seu professor e digite em “Meta do edital” — o app compara o seu '+
+    'resultado com o número '+
+    'que você colocar, e não inventa índice de prova nenhum.</p>'));
+}
+
+/* ============================================================
+   Render — histórico
+   ============================================================ */
+function renderHist(){
+  viewEl.innerHTML = "";
+
+  /* backup */
+  var nSess = Object.keys(S.sess).length, nLogs = Object.keys(S.logs).length;
+  var bk = el('<div class="hcard" style="margin-top:16px">'+
+    '<div class="hrow"><div><div class="nm">Seus dados</div>'+
+    '<div class="dt" style="margin-top:2px">'+nSess+(nSess===1?" sessão concluída":" sessões concluídas")+
+    ' · '+nLogs+' registro'+(nLogs===1?"":"s")+'</div></div></div>'+
+    '<div class="btnrow" style="margin-top:12px"><button id="btnExport2">Exportar backup</button></div>'+
+    '<p class="vsub">Salva um arquivo com tudo que você marcou, registrou e anotou. Guarde depois de cada semana — se você trocar de celular ou limpar o navegador, é ele que traz seu histórico de volta.</p>'+
+  '</div>');
+  bk.querySelector("#btnExport2").addEventListener("click", exportar);
+  viewEl.appendChild(bk);
+
+  /* sessões concluídas */
+  viewEl.appendChild(el('<div class="sec">Sessões concluídas</div>'));
+  var any=false, list = el('<div></div>');
+  for(var w=1; w<=4; w++){
+    for(var d=0; d<PLAN.length; d++){
+      var r = S.sess[kSess(w,d)];
+      if(!r) continue;
+      any=true;
+      list.appendChild(el('<div class="hcard"><div class="hrow">'+
+        '<div><div class="nm">'+esc(PLAN[d].nome)+'</div>'+
+        '<div class="dt" style="margin-top:2px">Semana '+w+' · '+r.sets+'/'+r.tot+' séries'+
+        (r.dur?' · '+fmtLongo(r.dur):'')+(r.rpe?' · '+esc(RPEL[r.rpe]):'')+'</div></div>'+
+        '<div class="dt">'+esc(r.data)+'</div></div></div>'));
+    }
+  }
+  if(!any) list.appendChild(el('<div class="empty-state">Nenhuma sessão concluída ainda. Marque as séries e toque em “Concluir treino”.</div>'));
+  viewEl.appendChild(list);
+
+  /* evolução por exercício */
+  viewEl.appendChild(el('<div class="sec">Evolução por exercício</div>'));
+  var rows = [], seen = {};
+  PLAN.forEach(function(sx, d){
+    sx.blocos.forEach(function(b){
+      for(var w=1; w<=4; w++){
+        var cfg = bs(b,w);
+        cfg.it.forEach(function(it, ii){
+          if(!it.reg) return;
+          var key = sx.id+"|"+b.id+"|"+it.n;
+          if(seen[key]) return;
+          seen[key] = { sess:sx.nome, nome:it.n, tipo:it.reg.t, wk:["","","",""] };
+          rows.push(seen[key]);
+        });
+      }
+    });
+    sx.blocos.forEach(function(b){
+      for(var w=1; w<=4; w++){
+        var cfg = bs(b,w);
+        cfg.it.forEach(function(it, ii){
+          if(!it.reg) return;
+          var key = sx.id+"|"+b.id+"|"+it.n;
+          if(!seen[key]) return;
+          var vals=[];
+          for(var i=0;i<cfg.s;i++){
+            var v = S.logs[kLog(w,d,b.id,ii,i)];
+            if(v) vals.push(v);
+          }
+          if(vals.length) seen[key].wk[w-1] = vals.join(" ");
+        });
+      }
+    });
+  });
+  var comDados = rows.filter(function(r){ return r.wk.some(function(v){ return v; }); });
+  if(!comDados.length){
+    viewEl.appendChild(el('<div class="empty-state">Assim que você registrar cargas, tempos ou repetições, a comparação entre as semanas aparece aqui.</div>'));
+  } else {
+    var byS = {};
+    comDados.forEach(function(r){ (byS[r.sess]=byS[r.sess]||[]).push(r); });
+    Object.keys(byS).forEach(function(sname){
+      var card = el('<div class="hcard"><div class="hrow"><div class="nm">'+esc(sname)+'</div></div></div>');
+      byS[sname].forEach(function(r){
+        var g = '<div style="margin-top:11px"><div class="dt" style="color:var(--ink);font-family:var(--f-body);font-weight:600">'+esc(r.nome)+'</div><div class="grid4">';
+        for(var i=0;i<4;i++){
+          var v = r.wk[i];
+          g += '<div class="cell'+(v?"":" empty")+'"><div class="w">S'+(i+1)+'</div>'+
+               '<div class="v">'+(v?esc(v):"—")+'</div></div>';
+        }
+        g += '</div></div>';
+        card.appendChild(el(g));
+      });
+      viewEl.appendChild(card);
+    });
+  }
+
+  /* anotações */
+  var notas = [];
+  for(var w2=1; w2<=4; w2++){
+    for(var d2=0; d2<PLAN.length; d2++){
+      var t = S.notas[kSess(w2,d2)];
+      if(t) notas.push({ w:w2, nome:PLAN[d2].nome, t:t });
+    }
+  }
+  if(notas.length){
+    viewEl.appendChild(el('<div class="sec">Anotações</div>'));
+    notas.forEach(function(n){
+      viewEl.appendChild(el('<div class="hcard"><div class="hrow">'+
+        '<div class="nm">'+esc(n.nome)+'</div><div class="dt">Semana '+n.w+'</div></div>'+
+        '<div style="margin-top:7px;color:var(--ink-2);font-size:13.5px;white-space:pre-wrap">'+esc(n.t)+'</div></div>'));
+    });
+  }
+}
+
+/* ============================================================
+   Abas, ajustes, backup
+   ============================================================ */
+var tabT = document.getElementById("tabTreino"),
+    tabS = document.getElementById("tabSim"),
+    tabH = document.getElementById("tabHist");
+function renderTabs(){
+  tabT.setAttribute("aria-pressed", S.tab==="treino");
+  tabS.setAttribute("aria-pressed", S.tab==="sim");
+  tabH.setAttribute("aria-pressed", S.tab==="hist");
+}
+function vaiPara(aba){
+  S.tab = aba; save(); renderTabs(); renderView(); window.scrollTo(0,0);
+}
+tabT.addEventListener("click", function(){ vaiPara("treino"); });
+tabS.addEventListener("click", function(){ vaiPara("sim"); });
+tabH.addEventListener("click", function(){ vaiPara("hist"); });
+
+/* ---------- esforço da sessão (pergunta ao concluir) ---------- */
+var rsheet = document.getElementById("rsheet");
+var rPend = null;
+function concluirSessao(rpe){
+  if(!rPend) return;
+  var nk = rPend; rPend = null;
+  S.sess[nk] = { data: hoje(), sets: doneSets(S.week,S.day), tot: totalSets(S.week,S.day) };
+  if(rpe) S.sess[nk].rpe = rpe;
+  if(S.ini[nk]) S.sess[nk].dur = Math.round((Date.now()-S.ini[nk])/1000);  /* congela o total */
+  beep(2); save();
+  rsheet.classList.remove("open");
+  renderHead(); renderView();
+}
+document.getElementById("rpeBtns").addEventListener("click", function(e){
+  var b = e.target.closest("button");
+  if(b) concluirSessao(+b.dataset.r);
+});
+document.getElementById("rSkip").addEventListener("click", function(){ concluirSessao(null); });
+rsheet.addEventListener("click", function(e){
+  if(e.target===rsheet){ rPend=null; rsheet.classList.remove("open"); }
+});
+
+/* ============================================================
+   Instalar na tela inicial
+   O Android (Chrome) às vezes oferece um instalador nativo — quando
+   oferece, o botão dispara ele. O iPhone não permite que nenhum site
+   faça isso sozinho: lá o botão mostra o passo a passo.
+   ============================================================ */
+var deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", function(e){
+  e.preventDefault(); deferredPrompt = e; renderView();
+});
+window.addEventListener("appinstalled", function(){
+  deferredPrompt = null; S.cfg.instalado = true; save(); renderView();
+});
+
+function jaInstalado(){
+  try{
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           window.navigator.standalone === true;
+  }catch(e){ return false; }
+}
+function ehIOS(){
+  var ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) ||
+         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+function ehAndroid(){ return /Android/i.test(navigator.userAgent); }
+function emIframe(){ try{ return window.top !== window.self; }catch(e){ return true; } }
+/* No iPhone só o Safari instala: Chrome, Firefox e Edge de lá usam o motor
+   da Apple mas não recebem a opção. Por isso vale checar qual é. */
+function ehSafariIOS(){ return ehIOS() && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent); }
+function ehChromeAndroid(){
+  var ua = navigator.userAgent;
+  return ehAndroid() && /Chrome|Chromium/.test(ua) && !/wv\)|; wv/.test(ua);
+}
+
+function passosInstalacao(){
+  var aviso = emIframe()
+    ? '<p class="vsub" style="margin:0 0 14px">Você está vendo o app dentro de outro aplicativo. '+
+      'Primeiro abra este endereço direto no navegador do celular — só de lá dá para instalar.</p>'
+    : "";
+  var p = [];
+  if(ehIOS()){
+    /* já está no Safari? então não faz sentido mandar abrir no Safari */
+    if(!ehSafariIOS()) p.push('Abra este endereço no <b>Safari</b> — no iPhone só ele instala.');
+    p.push('Toque no botão <b>Compartilhar</b>, o quadrado com a seta para cima.');
+    p.push('Role a lista e toque em <b>Adicionar à Tela de Início</b>.');
+    p.push('Confirme em <b>Adicionar</b>, no canto superior direito.');
+    return aviso + '<ul class="steps"><li>' + p.join('</li><li>') + '</li></ul>' +
+      '<p class="vsub">O iPhone não deixa nenhum site se instalar sozinho — esse caminho é o '+
+      'único que a Apple permite, e leva uns 10 segundos.</p>';
+  }
+  if(ehAndroid()){
+    /* O Samsung Internet é muito usado aqui e tem outro caminho: o menu
+       fica na barra de baixo, não no canto de cima. Mandar procurar o ⋮
+       lá em cima faz a pessoa não achar e desistir. */
+    if(/SamsungBrowser/.test(navigator.userAgent)){
+      p.push('Toque no menu <b>☰</b>, na barra de baixo.');
+      p.push('Toque em <b>Adicionar página a</b>.');
+      p.push('Escolha <b>Tela inicial</b> e confirme em <b>Adicionar</b>.');
+    } else if(ehChromeAndroid()){
+      p.push('Toque no menu <b>⋮</b>, no canto superior direito.');
+      p.push('Toque em <b>Adicionar à tela inicial</b> (às vezes aparece como <b>Instalar app</b>).');
+      p.push('Confirme em <b>Adicionar</b>.');
+    } else {
+      p.push('Abra o menu do navegador.');
+      p.push('Procure <b>Adicionar à tela inicial</b> ou <b>Instalar</b>.');
+      p.push('Confirme em <b>Adicionar</b>.');
+      p.push('Se não encontrar, abra este endereço no <b>Chrome</b> — lá o caminho é garantido.');
+    }
+    return aviso + '<ul class="steps"><li>' + p.join('</li><li>') + '</li></ul>';
+  }
+  return aviso +
+    '<ul class="steps">'+
+    '<li>Abra este endereço no navegador do celular.</li>'+
+    '<li>Abra o menu do navegador.</li>'+
+    '<li>Procure <b>Adicionar à tela inicial</b> ou <b>Instalar</b>.</li>'+
+    '</ul>'+
+    '<p class="vsub">No computador o app funciona igual, mas o atalho na tela inicial só faz sentido no celular.</p>';
+}
+
+/* Quem é o aparelho e o navegador de quem está lendo. Serve para mostrar
+   só os passos que valem para ele — instruções de iPhone num Android é a
+   maneira mais rápida de fazer alguém desistir de instalar. */
+function aparelho(){
+  var ua = navigator.userAgent;
+  if(ehIOS()) return { nome:"iPhone", nav: ehSafariIOS() ? "Safari"
+      : (/CriOS/.test(ua) ? "Chrome" : /FxiOS/.test(ua) ? "Firefox"
+      : /EdgiOS/.test(ua) ? "Edge" : "outro navegador") };
+  if(ehAndroid()) return { nome:"Android", nav: /SamsungBrowser/.test(ua) ? "Samsung Internet"
+      : /Firefox/.test(ua) ? "Firefox" : /EdgA/.test(ua) ? "Edge"
+      : ehChromeAndroid() ? "Chrome" : "outro navegador" };
+  return { nome:"computador", nav:"" };
+}
+
+var isheet = document.getElementById("isheet");
+function abrirInstalar(){
+  if(deferredPrompt){
+    /* o Chrome ofereceu a caixa nativa: não precisa de passo a passo */
+    var p = deferredPrompt; deferredPrompt = null;
+    p.prompt();
+    if(p.userChoice) p.userChoice.then(function(){ renderView(); });
+    return;
+  }
+  var ap = aparelho();
+  document.getElementById("iTitulo").textContent =
+    ap.nome === "computador" ? "Colocar na tela inicial" : "Instalar no " + ap.nome;
+  var plat = document.getElementById("iPlat");
+  if(ap.nav){
+    plat.style.display = "";
+    plat.innerHTML = "Passos para <b>"+esc(ap.nome)+" · "+esc(ap.nav)+"</b>";
+  } else plat.style.display = "none";
+  document.getElementById("iSteps").innerHTML = passosInstalacao();
+  isheet.classList.add("open");
+}
+document.getElementById("iClose").addEventListener("click", function(){ isheet.classList.remove("open"); });
+document.getElementById("iCopiar").addEventListener("click", function(){
+  var b = this, url = document.getElementById("iUrl").textContent.trim();
+  function avisa(ok){
+    b.textContent = ok ? "Link copiado" : "Copie o link acima";
+    setTimeout(function(){ b.textContent = "Copiar link"; }, 2200);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ avisa(true); }, function(){ avisa(false); });
+  } else avisa(false);
+});
+isheet.addEventListener("click", function(e){ if(e.target===isheet) isheet.classList.remove("open"); });
+
+/* ---------- painel de vídeo ---------- */
+var vsheet = document.getElementById("vsheet");
+var vOpen = document.getElementById("vOpen");
+var vUrl = document.getElementById("vUrl");
+var vAtual = null;
+
+function urlOk(u){
+  return /^https?:\/\/[^\s]+$/i.test(String(u||"").trim());
+}
+function buscaYT(nome){
+  return "https://www.youtube.com/results?search_query=" +
+         encodeURIComponent(VID[nome] || nome);
+}
+function ytId(u){
+  var m = String(u||"").match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+function fillPlayer(id){
+  document.getElementById("vPlayer").innerHTML =
+    '<div class="vplayer"><iframe src="https://www.youtube-nocookie.com/embed/'+id+'?rel=0" '+
+    'title="Vídeo do exercício" allow="encrypted-media; picture-in-picture" allowfullscreen '+
+    'referrerpolicy="strict-origin-when-cross-origin"></iframe></div>';
+}
+function clearPlayer(){
+  document.getElementById("vPlayer").innerHTML = "";
+  document.getElementById("vCred").style.display = "none";
+}
+function openVideo(nome){
+  vAtual = nome;
+  document.getElementById("vTitle").textContent = nome;
+  var salvo = S.vid[nome];
+  var cur = VIDEO[nome];
+  var vCred = document.getElementById("vCred");
+  vUrl.value = salvo || "";
+  clearPlayer();
+  if(salvo && urlOk(salvo)){
+    // link do professor manda
+    var sid = ytId(salvo);
+    if(sid) fillPlayer(sid);
+    vOpen.href = salvo;
+    vOpen.textContent = "Abrir seu vídeo";
+    document.getElementById("vSub").textContent = sid
+      ? "Vídeo salvo por você. O player precisa de internet; o restante do app funciona offline."
+      : "Abre o link que você salvou para este exercício.";
+  } else if(cur){
+    fillPlayer(cur.id);
+    vCred.textContent = "“" + cur.t + "” · " + cur.c + " · " + cur.d;
+    vCred.style.display = "";
+    vOpen.href = "https://www.youtube.com/watch?v=" + cur.id;
+    vOpen.textContent = "Abrir no YouTube";
+    document.getElementById("vSub").textContent =
+      "Demonstração sugerida. O player precisa de internet; o restante do app funciona offline. Se o professor mandar outro vídeo, salve o link abaixo que ele passa a valer.";
+  } else {
+    vOpen.href = buscaYT(nome);
+    vOpen.textContent = "Buscar no YouTube";
+    document.getElementById("vSub").textContent =
+      "Abre a busca “" + (VID[nome]||nome) + "” no YouTube, em outra aba.";
+  }
+  vOpen.className = "vlink";
+  document.getElementById("vClear").style.display = salvo ? "" : "none";
+  vsheet.classList.add("open");
+}
+function closeVSheet(){
+  vsheet.classList.remove("open");
+  clearPlayer(); // remove o iframe para o vídeo parar de tocar
+}
+document.getElementById("vSave").addEventListener("click", function(){
+  var u = vUrl.value.trim();
+  if(!u){ delete S.vid[vAtual]; }
+  else if(!urlOk(u)){
+    alert("Esse link não parece válido. Ele precisa começar com https:// — copie o endereço direto do YouTube ou de onde o vídeo estiver.");
+    return;
+  }
+  else S.vid[vAtual] = u;
+  save(); closeVSheet(); renderView();
+});
+document.getElementById("vClear").addEventListener("click", function(){
+  delete S.vid[vAtual]; save(); closeVSheet(); renderView();
+});
+document.getElementById("vClose").addEventListener("click", closeVSheet);
+vsheet.addEventListener("click", function(e){ if(e.target===vsheet) closeVSheet(); });
+
+var sheet = document.getElementById("sheet");
+document.getElementById("btnCfg").addEventListener("click", function(){
+  sheet.classList.add("open");
+  mostraVersao();
+});
+document.getElementById("btnClose").addEventListener("click", function(){ sheet.classList.remove("open"); });
+sheet.addEventListener("click", function(e){ if(e.target===sheet) sheet.classList.remove("open"); });
+document.getElementById("btnStop").addEventListener("click", function(){ startUp(null,"Cronômetro"); });
+
+function bindSwitch(id, key, after){
+  var b = document.getElementById(id);
+  b.setAttribute("aria-pressed", !!S.cfg[key]);
+  b.addEventListener("click", function(){
+    S.cfg[key] = !S.cfg[key];
+    b.setAttribute("aria-pressed", !!S.cfg[key]);
+    save(); if(after) after();
+  });
+}
+/* ---------- tema (modo noturno) ---------- */
+var mqDark = window.matchMedia("(prefers-color-scheme: dark)");
+function applyTheme(){
+  var t = S.cfg.tema || "auto";
+  if(t === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  var escuro = t === "dark" || (t === "auto" && mqDark.matches);
+  document.querySelector('meta[name="theme-color"]')
+          .setAttribute("content", escuro ? "#12151A" : "#E9ECEF");
+  var seg = document.getElementById("segTema");
+  if(seg) seg.querySelectorAll("button").forEach(function(b){
+    b.classList.toggle("on", b.dataset.t === t);
+  });
+}
+document.getElementById("segTema").addEventListener("click", function(e){
+  var b = e.target.closest("button");
+  if(!b) return;
+  S.cfg.tema = b.dataset.t;
+  save(); applyTheme();
+});
+mqDark.addEventListener("change", applyTheme);
+applyTheme();
+
+/* ---------- data da prova ---------- */
+var inProva = document.getElementById("inProva");
+inProva.addEventListener("change", function(){
+  var v = inProva.value;
+  if(v) S.cfg.prova = v; else delete S.cfg.prova;
+  save(); renderHead(); renderView();
+});
+
+bindSwitch("swWake","wake",applyWake);
+bindSwitch("swSound","som",function(){ if(S.cfg.som) beep(1); agendaAvisos(); });
+bindSwitch("swAuto","auto");
+
+/* ---------- tipo de som ---------- */
+document.getElementById("segSom").addEventListener("click", function(e){
+  var b = e.target.closest("button");
+  if(!b) return;
+  S.cfg.somTipo = b.dataset.s;
+  save(); marcaSom(); agendaAvisos();   /* descanso em andamento passa a usar o novo som */
+  if(S.cfg.som) beep(3); /* toca o aviso inteiro para você comparar */
+});
+function marcaSom(){
+  var t = SONS.indexOf(S.cfg.somTipo)<0 ? SONS[0] : S.cfg.somTipo;
+  document.getElementById("segSom").querySelectorAll("button").forEach(function(b){
+    b.classList.toggle("on", b.dataset.s===t);
+  });
+}
+
+/* Os controles são criados antes de os dados serem lidos do aparelho:
+   depois do load() é preciso reacertar o que eles mostram. */
+function syncCfgUI(){
+  [["swWake","wake"],["swSound","som"],["swAuto","auto"]].forEach(function(p){
+    document.getElementById(p[0]).setAttribute("aria-pressed", !!S.cfg[p[1]]);
+  });
+  inProva.value = S.cfg.prova || "";
+  marcaSom();
+}
+
+function exportar(){
+  var data = JSON.stringify(snapshot());
+  var d = new Date(), p = function(n){ return (n<10?"0":"")+n; };
+  var nome = "taf-backup-" + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + ".json";
+  try{
+    var blob = new Blob([data], {type:"application/json"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+  }catch(e){
+    window.prompt("Copie e guarde este texto — é o seu backup:", data);
+  }
+}
+document.getElementById("btnExport").addEventListener("click", function(){
+  exportar(); sheet.classList.remove("open");
+});
+document.getElementById("btnInstall").addEventListener("click", function(){
+  sheet.classList.remove("open");
+  S.cfg.semConvite = false; save();
+  abrirInstalar();
+});
+document.getElementById("btnImport").addEventListener("click", function(){
+  var inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "application/json,.json";
+  inp.addEventListener("change", function(){
+    var f = inp.files && inp.files[0];
+    if(!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      try{
+        var o = JSON.parse(fr.result);
+        FIELDS.forEach(function(k){ if(o[k]!=null) S[k]=o[k]; });
+        if(o.cfg) for(var c in o.cfg) S.cfg[c]=o.cfg[c];
+        tafInit();
+        save(); sheet.classList.remove("open");
+        applyTheme(); syncCfgUI(); renderHead(); renderView();
+      }catch(e){ alert("Não consegui ler esse arquivo. Escolha o taf-backup.json exportado pelo app."); }
+    };
+    fr.readAsText(f);
+  });
+  inp.click();
+});
+document.getElementById("btnResetSession").addEventListener("click", function(){
+  var w=S.week, d=S.day;
+  if(!confirm("Zerar as séries e registros de "+PLAN[d].nome+" na semana "+w+"?")) return;
+  PLAN[d].blocos.forEach(function(b){
+    var cfg = bs(b,w);
+    for(var i=0;i<cfg.s;i++){
+      delete S.done[kDone(w,d,b.id,i)];
+      cfg.it.forEach(function(it, ii){ delete S.logs[kLog(w,d,b.id,ii,i)]; });
+    }
+  });
+  delete S.sess[kSess(w,d)];
+  delete S.ini[kSess(w,d)];
+  save(); sheet.classList.remove("open"); renderHead(); renderView();
+});
+document.getElementById("btnResetAll").addEventListener("click", function(){
+  if(!confirm("Apagar todos os treinos, registros, anotações e simulados deste aparelho? Isso não tem volta.")) return;
+  S.done={}; S.logs={}; S.notas={}; S.sess={}; S.ini={}; S.taf={ metas:{}, tests:[] };
+  save(); sheet.classList.remove("open"); renderHead(); renderView();
+});
+
+/* ============================================================
+   Capa de abertura
+   Aparece a cada abertura do app, mas não a cada carregamento da página —
+   a marca fica no sessionStorage e o script lá do <head> a lê antes de a
+   página desenhar, para a capa não piscar em quem só recarregou.
+   ============================================================ */
+function marcaAberto(){
+  document.documentElement.className += " ja-abriu";
+  try{ sessionStorage.setItem("meu-treino-aberto","1"); }catch(e){}
+}
+document.getElementById("capaGo").addEventListener("click", function(){
+  marcaAberto();
+  try{ ac(); }catch(e){}          /* toque do usuário: aproveita e libera o áudio */
+});
+/* Mostra os dias que faltam já na capa: como ela aparece a cada abertura,
+   precisa dizer algo que muda, senão vira só um obstáculo antes do treino. */
+function renderCapa(){
+  var n = diasProva(), alvo = document.getElementById("capaConta");
+  if(n === null || n < 0){ alvo.style.display = "none"; }
+  else {
+    alvo.style.display = "";
+    alvo.innerHTML = n === 0
+      ? '<span>a prova é hoje</span>'
+      : '<b>'+n+'</b><span>'+(n===1 ? "dia para a prova" : "dias para a prova")+'</span>';
+  }
+  /* atalho de instalar aqui mesmo: quem vai instalar não precisa entrar no
+     app, achar o cartão e só então instalar */
+  document.getElementById("capaInst").style.display = jaInstalado() ? "none" : "";
+}
+document.getElementById("capaInst").addEventListener("click", function(){
+  marcaAberto();
+  abrirInstalar();
+});
+
+/* ============================================================
+   Atualização do app
+   Um app instalado na tela inicial não se atualiza como um site: ele
+   pode ficar semanas com a versão velha guardada. Aqui o app procura
+   versão nova toda vez que volta para a frente, e quando acha avisa
+   com uma faixa em vez de trocar tudo por baixo dos pés.
+   ============================================================ */
+var upd = document.getElementById("upd");
+var swReg = null;
+var jaControlado = false;
+var recarregando = false;
+
+function mostraAtualizacao(){ upd.classList.add("open"); }
+document.getElementById("updGo").addEventListener("click", function(){
+  if(recarregando) return;
+  recarregando = true;
+  location.reload();
+});
+document.getElementById("updX").addEventListener("click", function(){
+  upd.classList.remove("open");
+});
+
+/* Pergunta a versão para o service worker que está no comando. Espera o
+   `ready` porque logo depois de registrar ainda não há ninguém no comando
+   — perguntar cedo demais volta vazio. */
+function versaoSW(){
+  return new Promise(function(ok){
+    if(!("serviceWorker" in navigator)) return ok(null);
+    setTimeout(function(){ ok(null); }, 2500);   /* promessa ignora resposta atrasada */
+    navigator.serviceWorker.ready.then(function(){
+      var sw = navigator.serviceWorker.controller;
+      if(!sw) return ok(null);
+      var canal = new MessageChannel();
+      canal.port1.onmessage = function(e){ ok(e.data && e.data.versao || null); };
+      sw.postMessage({ q:"versao" }, [canal.port2]);
+    }).catch(function(){ ok(null); });
+  });
+}
+function mostraVersao(){
+  var alvo = document.getElementById("verInfo");
+  versaoSW().then(function(v){
+    alvo.textContent = v ? "Instalada: "+v : "Guardada só depois da primeira visita";
+  });
+}
+document.getElementById("btnVer").addEventListener("click", function(){
+  var alvo = document.getElementById("verInfo");
+  if(!swReg){ alvo.textContent = "Este navegador não guarda o app"; return; }
+  alvo.textContent = "Procurando…";
+  swReg.update().then(function(){
+    if(swReg.installing || swReg.waiting){ alvo.textContent = "Baixando a versão nova…"; return; }
+    versaoSW().then(function(v){
+      alvo.textContent = "Você já está na mais nova" + (v ? " ("+v+")" : "");
+    });
+  }).catch(function(){
+    alvo.textContent = "Não deu para verificar — sem internet?";
+  });
+});
+
+if("serviceWorker" in navigator){
+  /* guardado antes de registrar: se já havia um no comando, o que vier
+     depois é atualização; se não havia, é a primeira instalação */
+  jaControlado = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", function(){
+    if(jaControlado) mostraAtualizacao();
+    /* a primeira troca é a instalação inicial tomando conta, e não conta
+       como novidade; da segunda em diante é atualização de verdade */
+    else jaControlado = true;
+  });
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").then(function(r){
+      swReg = r;
+      mostraVersao();
+      if(r.waiting && jaControlado) mostraAtualizacao();
+    }).catch(function(){ /* sem offline, o app segue normal */ });
+  });
+}
+
+/* ============================================================
+   Início
+   ============================================================ */
+load();
+if(S.week<1||S.week>4) S.week=1;
+if(S.day<0||S.day>=PLAN.length) S.day=0;
+if(["treino","sim","hist"].indexOf(S.tab)<0) S.tab="treino";
+tafInit();
+applyTheme(); syncCfgUI(); renderCapa();
+renderHead(); renderTabs(); renderView(); applyWake();
+
+})();
+</script>
+
+</body>
+</html>
