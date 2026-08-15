@@ -4,6 +4,12 @@
    Ao publicar uma alteração, troque o número da versão abaixo. */
 
 const VERSAO = "meu-treino-v1";
+/* O Meu TAF mora no mesmo endereço (mateusvazzoller.github.io), em outra
+   pasta, e o navegador guarda o cache POR ENDEREÇO — os dois service
+   workers enxergam a mesma prateleira. Sem este prefixo, a faxina do
+   `activate` abaixo apagaria o cache do outro app, e ele pararia de
+   funcionar sem internet até ser aberto de novo com sinal. */
+const PREFIXO = "meu-treino-";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -30,7 +36,8 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((ks) => Promise.all(ks.filter((k) => k !== VERSAO).map((k) => caches.delete(k))))
+      .then((ks) => Promise.all(
+        ks.filter((k) => k.startsWith(PREFIXO) && k !== VERSAO).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

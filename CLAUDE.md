@@ -65,6 +65,14 @@ Por isso, e **nunca volte atrás nisso**:
 
 Ao criar qualquer chave nova, prefixe com `meu-treino-`.
 
+**A pegadinha mais difícil de ver está no `activate` do service worker.** A
+faxina de caches velhos varre `caches.keys()`, que também é por domínio: a
+versão original apagava tudo que não fosse a versão atual e, com dois apps no
+mesmo domínio, cada um destruía o cache offline do outro ao ser aberto. O
+sintoma seria "o outro app parou de funcionar sem internet", horas depois e
+sem relação aparente. Por isso a faxina é filtrada por `PREFIXO` nos dois
+repositórios — não remova esse filtro.
+
 Pela mesma razão o **ícone é azul** (`#4A90FF`) e o do Meu TAF é laranja: os dois
 convivem na mesma tela inicial e precisam ser distinguíveis a 48 px. A marca (o
 T construído) é a mesma de propósito — são irmãos.
