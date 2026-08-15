@@ -12,6 +12,36 @@ O app não prescreve treino: ele mostra o que um profissional prescreveu.
 **Não invente, não "corrija" e não complete exercícios, cargas ou progressões.**
 Dúvida vira pergunta ao usuário, não suposição.
 
+## O banco — decidido, ainda não instalado
+
+`banco/01-esquema.sql` cria as nove tabelas com as regras de permissão;
+`banco/02-teste.sql` prova que elas seguram. Nenhum dos dois rodou ainda: o
+projeto do Supabase depende de uma conta que só o usuário cria. Ver
+`banco/LEIA-ME.md` para o passo a passo.
+
+Decisões que já estão dentro do esquema e não devem ser desfeitas sem
+conversa:
+
+- **Multi-academia desde a primeira tabela.** Toda tabela tem `academia_id`,
+  e as chaves estrangeiras são **compostas** (`ficha_id, academia_id`) para
+  que "pertencer à mesma academia" seja garantido pela estrutura e não só
+  pela regra. Acrescentar isso depois seria migrar tudo com dados reais
+  dentro.
+- **Papéis acumuláveis** (`vinculos.papeis` é um array), porque em academia
+  pequena a mesma pessoa faz mais de uma coisa. O `admin` já pode tudo
+  sozinho — o dono não precisa acumular.
+- **A pessoa é global, o vínculo é local.** Um login por ser humano, mesmo
+  que ele esteja em duas academias.
+- **`lancamentos` só cresce.** Nem regra de update/delete, nem gatilho que
+  permita. Errou, lança estorno.
+- **As regras moram no banco.** Ao criar tabela nova, ligue
+  `row level security` nela — sem isso ela nasce aberta a qualquer um.
+
+Ao mexer nas regras, lembre que uma tentativa barrada **nem sempre dá
+erro**: em `INSERT` dá, em `UPDATE`/`DELETE` ela apenas não mexe em linha
+nenhuma, em silêncio. Um teste que só espera exceção passa achando que
+falhou — foi um erro real na primeira versão do `02-teste.sql`.
+
 ## O trabalho que ainda não foi feito
 
 ### O plano precisa virar dado
@@ -87,6 +117,7 @@ T construído) é a mesma de propósito — são irmãos.
 | `icons/` | Ícones PNG, gerados por `tools/gerar-icones.py` |
 | `sons/` | Avisos sonoros em MP3 + `CREDITOS.txt` com autoria e licença |
 | `tools/gerar-icones.py` | Regera os ícones a partir das cores do app |
+| `banco/` | Estrutura do Supabase: tabelas, regras de permissão e o teste delas |
 
 Não existe build, bundler nem dependência. Editar `index.html` e dar push é o
 fluxo completo.
