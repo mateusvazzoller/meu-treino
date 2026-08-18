@@ -511,6 +511,21 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
   .gbotao{width:100%;height:52px;margin-top:16px;border-radius:12px;background:var(--accent);
           color:var(--accent-ink);font-family:var(--f-display);font-size:17px;
           letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+  /* aviso não é erro: nada travou, mas algo ficou pela metade e a pessoa
+     precisa saber. Por isso contorno tracejado em vez do âmbar do erro. */
+  .gaviso{margin-top:12px;border:1px dashed var(--line);color:var(--ink-2);
+          border-radius:9px;padding:10px 13px;font-size:13px;line-height:1.45}
+  .quem{display:flex;align-items:center;gap:9px;margin-top:9px;padding-top:9px;
+        border-top:1px solid var(--line-soft)}
+  .quem .nm{flex:1;min-width:0;font-size:13.5px;color:var(--ink);
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .quem .dt{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+  .quem button{border:1px solid var(--line);border-radius:7px;padding:7px 10px;
+               font-size:11.5px;color:var(--ink-2);background:transparent}
+  .alunos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .alunos button{border:1px solid var(--line);border-radius:8px;padding:9px 12px;
+                 font-size:13.5px;color:var(--ink);background:var(--surface-2)}
+  .alunos button[disabled]{opacity:.4}
   /* `.mini` (9,5 px, parecendo link) escondia o "sair" a ponto de o usuário
      jurar que ele não existia. Sair da conta é ação de peso: merece contorno,
      área de toque e a cor de atenção. */
@@ -603,7 +618,8 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
     </div>
     <button class="go" id="capaGo">Iniciar meu treino</button>
     <button class="inst" id="capaInst" style="display:none"><i>+</i>Instalar na tela inicial</button>
-    <p class="rodape">Seus registros ficam só neste aparelho.</p>
+    <p class="rodape">Funciona sem internet. O que você marca sobe para a sua
+      conta quando houver sinal.</p>
   </div>
 </div>
 
@@ -788,7 +804,7 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
       <button id="btnResetSession" class="danger">Zerar sessão atual</button>
       <button id="btnResetAll" class="danger">Apagar todos os dados</button>
     </div>
-    <p class="hint">Tudo fica salvo só neste aparelho, no navegador. Faça um backup antes de trocar de celular ou limpar os dados do navegador.</p>
+    <p class="hint">O que você marca fica no aparelho e sobe para a sua conta quando houver internet — trocar de celular não perde o treino. O backup aqui é a garantia a mais, e o único jeito de levar os dados para fora do app.</p>
     <div class="btnrow"><button id="btnClose">Fechar</button></div>
   </div>
 </div>
@@ -798,23 +814,52 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
 "use strict";
 
 /* ============================================================
-   O PLANO DE TREINO
+   A FICHA
 
-   Vazio de propósito. O treino não mora mais no código: ele vem da ficha
-   que o professor monta e entrega ao aluno. Enquanto essa parte não
-   existir, o app abre no estado vazio, que é exatamente o que um aluno
-   recém-cadastrado vê antes de receber treino.
+   O treino não mora no código: vem da ficha que o professor montou e
+   entregou. `PLAN` é o conteúdo dela, e continua sendo lido pelo resto do
+   app exatamente como antes — o que mudou é de onde ele chega.
 
-   Formato de cada sessão, para quando a ficha chegar aqui:
+   Formato de cada sessão:
    { id, dia, nome, foco, kind, blocos:[ { id, t, tipo, nota,
-       sem:[ cfgSemana1..4 ] } ] }
+       sem:[ cfgSemana1..N ] } ] }
    Cada `cfg`: s = nº de séries, r = descanso em segundos, rt = descanso
    como o professor escreveu, it = exercícios { n, p, reg:{t} }.
-   ============================================================ */
-var eq = function(o){ return [o,o,o,o]; };
-var pair = function(a,b){ return [a,a,b,b]; };
 
-var PLAN = [];
+   Este é o MESMO formato guardado em `fichas.conteudo` no banco. Não é
+   preguiça: qualquer tradução entre os dois vira um lugar a mais para o
+   treino sair diferente do que o professor escreveu.
+   ============================================================ */
+var PLAN  = [];
+var NSEM  = 4;      /* quantas semanas a ficha tem — quem manda é ela */
+var F     = null;   /* ficha em uso: { aid, fid, acad, nome, semanas, conteudo } */
+
+/* Sem esta cópia no aparelho o aluno abriria o app na academia, sem sinal,
+   e não teria treino nenhum. O prefixo é obrigatório: o Meu TAF divide o
+   mesmo endereço e a mesma prateleira do navegador. */
+var KFICHA = "meu-treino-ficha";
+
+function aplicaFicha(f){
+  F    = f || null;
+  PLAN = (f && f.conteudo) || [];
+  NSEM = (f && f.semanas) || 4;
+  if(S.week < 1 || S.week > NSEM) S.week = 1;
+  if(S.day  < 0 || S.day >= PLAN.length) S.day = 0;
+}
+
+function carregaFichaLocal(){
+  var f = null;
+  try{ f = JSON.parse(localStorage.getItem(KFICHA) || "null"); }catch(e){}
+  aplicaFicha(f);
+}
+
+function guardaFicha(f){
+  try{
+    if(f) localStorage.setItem(KFICHA, JSON.stringify(f));
+    else  localStorage.removeItem(KFICHA);
+  }catch(e){}
+  aplicaFicha(f);
+}
 
 /* O simulado veio do Meu TAF e não cabe numa academia comum: as cinco
    provas são as do TAF da PCPR. Fica desligado, mas inteiro — a aba some
@@ -953,23 +998,37 @@ function snapshot(){
   return o;
 }
 var saveT=null;
-function save(){
+/* `quieto` grava sem avisar a sincronia. Serve para quando o que mudou VEIO
+   do servidor: sem isso o app devolveria ao servidor o que ele acabou de
+   receber, e ficaria mandando o mesmo estado para frente e para trás. */
+function save(quieto){
   clearTimeout(saveT);
   saveT = setTimeout(function(){
     try{ localStorage.setItem(KEY, JSON.stringify(snapshot())); }catch(e){}
   },160);
+  if(!quieto) marcaSujo();
 }
 
 function sess(w,d){ return PLAN[d]; }
 function wIdx(){ return S.week-1; }
-function bs(bloco,w){ return bloco.sem[w-1]; }
+/* O professor pode ter escrito a variação de só algumas semanas. Faltando,
+   repete a última que ele escreveu — nunca inventa progressão nem deixa a
+   semana em branco. */
+function bs(bloco,w){
+  var s = bloco.sem || [];
+  return s[w-1] || s[s.length-1] || { s:0, it:[] };
+}
 /* As chaves carregam o id da sessão do plano. Com o app sem ficha, PLAN
    está vazio e PLAN[d] não existe — devolver "" faz a busca não achar
    nada, que é justamente o certo: sem treino não há o que marcar. Sem
    esta guarda o app quebrava uma vez por segundo, no relógio do topo. */
-function kDone(w,d,b,i){ return PLAN[d] ? "w"+w+"|"+PLAN[d].id+"|"+b+"|"+i : ""; }
-function kLog(w,d,b,it,i){ return PLAN[d] ? "w"+w+"|"+PLAN[d].id+"|"+b+"|"+it+"|"+i : ""; }
-function kSess(w,d){ return PLAN[d] ? "w"+w+"|"+PLAN[d].id : ""; }
+/* Duas fichas diferentes podem ter sessões com o mesmo id. Sem separar por
+   entrega, a segunda ficha nasceria com as séries da primeira já marcadas.
+   Por isso a chave começa pela entrega (`atribuicao`). */
+function kPre(){ return F && F.aid ? F.aid.slice(0,8)+"|" : ""; }
+function kDone(w,d,b,i){ return PLAN[d] ? kPre()+"w"+w+"|"+PLAN[d].id+"|"+b+"|"+i : ""; }
+function kLog(w,d,b,it,i){ return PLAN[d] ? kPre()+"w"+w+"|"+PLAN[d].id+"|"+b+"|"+it+"|"+i : ""; }
+function kSess(w,d){ return PLAN[d] ? kPre()+"w"+w+"|"+PLAN[d].id : ""; }
 
 function totalSets(w,d){
   if(!PLAN[d]) return 0;
@@ -1019,6 +1078,11 @@ function hoje(){
   var d = new Date();
   var p = function(n){ return (n<10?"0":"")+n; };
   return p(d.getDate())+"/"+p(d.getMonth()+1)+" · "+p(d.getHours())+":"+p(d.getMinutes());
+}
+/* O banco guarda data como aaaa-mm-dd. `dataBr` é para o olho humano. */
+function dataISO(){
+  var d = new Date(), p = function(n){ return (n<10?"0":"")+n; };
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
 }
 function dataBr(){
   var d = new Date(), p = function(n){ return (n<10?"0":"")+n; };
@@ -1412,9 +1476,9 @@ function renderSemTreino(){
   viewEl.appendChild(el('<div class="banner">' +
     '<h3>Nenhum treino por aqui ainda</h3>' +
     '<p>' + (podeMontar
-      ? "A montagem de ficha ainda está sendo construída. Enquanto isso, o " +
-        "cronômetro e o simulado funcionam normalmente."
-      : "Assim que o seu professor montar a sua ficha, ela aparece aqui " +
+      ? "Nenhuma ficha foi entregue a você. Na aba Gestão dá para entregar " +
+        "uma ficha a um aluno; a tela de montar ficha ainda está em construção."
+      : "Assim que o seu professor entregar a sua ficha, ela aparece aqui " +
         "sozinha — não precisa fazer nada.") +
     '</p></div>'));
 
@@ -1450,7 +1514,7 @@ function renderHead(){
   }
 
   weeksEl.innerHTML = "";
-  for(var w=1; w<=4; w++){
+  for(var w=1; w<=NSEM; w++){
     (function(w){
       var p = Math.round(weekProgress(w)*100);
       var b = el('<button class="wk" aria-pressed="'+(S.week===w)+'">'+
@@ -1477,9 +1541,9 @@ function renderHead(){
   });
 
   var allDone = true;
-  for(var d2=0; d2<PLAN.length; d2++){ if(!S.sess[kSess(4,d2)]) { allDone=false; break; } }
+  for(var d2=0; d2<PLAN.length; d2++){ if(!S.sess[kSess(NSEM,d2)]) { allDone=false; break; } }
   document.getElementById("cycleLabel").textContent =
-    allDone ? "Bloco de 4 semanas concluído" : "Treino em andamento";
+    allDone ? "Ficha concluída" : ((F && F.nome) || "Treino em andamento");
 
   renderSessTime();
 }
@@ -1523,7 +1587,7 @@ function renderView(){
     '</svg>'+
     '<div class="info"><h2>'+esc(sx.nome)+'</h2>'+
       '<p>'+esc(sx.foco)+'</p>'+
-      '<div class="cnt">'+fez+' de '+tot+' séries · Semana '+w+esc(faltamTxt())+'</div>'+
+      '<div class="cnt">'+fez+' de '+tot+' séries · Semana '+w+' de '+NSEM+esc(faltamTxt())+'</div>'+
     '</div></section>');
   viewEl.appendChild(meta);
 
@@ -1683,13 +1747,13 @@ function renderView(){
   viewEl.appendChild(fb);
 
   /* fim do bloco */
-  if(w===4){
-    var all = PLAN.every(function(_,dd){ return !!S.sess[kSess(4,dd)]; });
+  if(w===NSEM){
+    var all = PLAN.every(function(_,dd){ return !!S.sess[kSess(NSEM,dd)]; });
     if(all){
-      viewEl.appendChild(el('<div class="banner"><h3>Bloco de 4 semanas concluído</h3>'+
-        '<p>Você fechou todas as sessões da semana 4. O plano carregado no app vai só '+
-        'até aqui — peça a continuação ao seu professor. Antes disso, exporte um backup '+
-        'dos seus registros em Ajustes.</p></div>'));
+      viewEl.appendChild(el('<div class="banner"><h3>Ficha concluída</h3>'+
+        '<p>Você fechou todas as sessões da semana '+NSEM+'. Esta ficha vai só até aqui — '+
+        'a próxima aparece sozinha quando o seu professor entregar. Antes disso, exporte '+
+        'um backup dos seus registros em Ajustes.</p></div>'));
     }
   }
 }
@@ -1923,7 +1987,7 @@ function renderHist(){
   /* sessões concluídas */
   viewEl.appendChild(el('<div class="sec">Sessões concluídas</div>'));
   var any=false, list = el('<div></div>');
-  for(var w=1; w<=4; w++){
+  for(var w=1; w<=NSEM; w++){
     for(var d=0; d<PLAN.length; d++){
       var r = S.sess[kSess(w,d)];
       if(!r) continue;
@@ -1943,19 +2007,20 @@ function renderHist(){
   var rows = [], seen = {};
   PLAN.forEach(function(sx, d){
     sx.blocos.forEach(function(b){
-      for(var w=1; w<=4; w++){
+      for(var w=1; w<=NSEM; w++){
         var cfg = bs(b,w);
         cfg.it.forEach(function(it, ii){
           if(!it.reg) return;
           var key = sx.id+"|"+b.id+"|"+it.n;
           if(seen[key]) return;
-          seen[key] = { sess:sx.nome, nome:it.n, tipo:it.reg.t, wk:["","","",""] };
+          var vazias = []; for(var z=0; z<NSEM; z++) vazias.push("");
+          seen[key] = { sess:sx.nome, nome:it.n, tipo:it.reg.t, wk:vazias };
           rows.push(seen[key]);
         });
       }
     });
     sx.blocos.forEach(function(b){
-      for(var w=1; w<=4; w++){
+      for(var w=1; w<=NSEM; w++){
         var cfg = bs(b,w);
         cfg.it.forEach(function(it, ii){
           if(!it.reg) return;
@@ -1980,8 +2045,9 @@ function renderHist(){
     Object.keys(byS).forEach(function(sname){
       var card = el('<div class="hcard"><div class="hrow"><div class="nm">'+esc(sname)+'</div></div></div>');
       byS[sname].forEach(function(r){
-        var g = '<div style="margin-top:11px"><div class="dt" style="color:var(--ink);font-family:var(--f-body);font-weight:600">'+esc(r.nome)+'</div><div class="grid4">';
-        for(var i=0;i<4;i++){
+        var g = '<div style="margin-top:11px"><div class="dt" style="color:var(--ink);font-family:var(--f-body);font-weight:600">'+esc(r.nome)+'</div>'+
+                '<div class="grid4" style="grid-template-columns:repeat('+Math.min(NSEM,4)+',1fr)">';
+        for(var i=0;i<NSEM;i++){
           var v = r.wk[i];
           g += '<div class="cell'+(v?"":" empty")+'"><div class="w">S'+(i+1)+'</div>'+
                '<div class="v">'+(v?esc(v):"—")+'</div></div>';
@@ -1995,7 +2061,7 @@ function renderHist(){
 
   /* anotações */
   var notas = [];
-  for(var w2=1; w2<=4; w2++){
+  for(var w2=1; w2<=NSEM; w2++){
     for(var d2=0; d2<PLAN.length; d2++){
       var t = S.notas[kSess(w2,d2)];
       if(t) notas.push({ w:w2, nome:PLAN[d2].nome, t:t });
@@ -2564,6 +2630,10 @@ function supaFetch(caminho, o){
   var cabec = { "apikey": SUPA.chave, "Content-Type": "application/json" };
   cabec["Authorization"] = "Bearer " +
     (o.comSessao && sessao && sessao.token ? sessao.token : SUPA.chave);
+  /* `prefer:"return=representation"` faz o servidor devolver as linhas que
+     ele realmente mexeu. É a única forma de perceber uma recusa em UPDATE:
+     a regra do banco não dá erro, ela só não mexe em linha nenhuma. */
+  if(o.prefer) cabec["Prefer"] = o.prefer;
   return fetch(SUPA.url + caminho, {
     method: o.metodo || "GET",
     headers: cabec,
@@ -2647,10 +2717,164 @@ function buscaPerfil(jaTentou){
           renderTabs();
           if(S.tab === "gestao") renderView();
         }).catch(function(){});
+        sincronizaFicha();
       }
       return sessao;
     })
     .catch(function(){ return sessao; });   /* sem internet: fica com o que já sabia */
+}
+
+/* ============================================================
+   A ficha chega ao aluno
+
+   Duas perguntas ao servidor: qual entrega está ativa para mim, e qual é a
+   ficha dela. Feito o download, ela fica guardada no aparelho — o app abre
+   com o treino mesmo na academia sem sinal, que é o normal.
+
+   Falha de rede NÃO apaga a ficha guardada, pelo mesmo motivo que não
+   desloga: ficar sem treino no meio do exercício é pior do que estar um dia
+   desatualizado. Só uma resposta clara do servidor dizendo "não há entrega
+   ativa" tira a ficha do aparelho.
+   ============================================================ */
+function trocaFicha(nova){
+  guardaFicha(nova);
+  /* Ficha nova = conversa nova com o servidor. Começar limpa é o que faz o
+     app baixar o que o aluno já tinha marcado em outro aparelho, em vez de
+     mandar um estado vazio por cima. */
+  if(!nova || Y.aid !== nova.aid){
+    Y = { aid: nova ? nova.aid : null, carimbo:null, sujo:false };
+    guardaSync();
+  }
+  save(true);
+  renderHead(); renderTabs(); renderView();
+}
+
+function sincronizaFicha(){
+  if(!sessao || !sessao.uid) return Promise.resolve(null);
+  return supaFetch("/rest/v1/atribuicoes?select=id,ficha_id,academia_id,inicio" +
+                   "&aluno_id=eq." + sessao.uid + "&ativa=is.true" +
+                   "&order=inicio.desc,criada_em.desc&limit=1", { comSessao:true })
+    .then(function(r){
+      if(!r.ok || !r.dados) return null;         /* resposta ruim: fica com a cópia */
+      var a = r.dados[0];
+      if(!a){
+        /* o professor encerrou a entrega. O que o aluno marcou continua
+           guardado: as chaves carregam o id da entrega, então se ela voltar
+           o histórico volta junto. */
+        if(F) trocaFicha(null);
+        return null;
+      }
+      return supaFetch("/rest/v1/fichas?select=nome,semanas,conteudo,atualizada_em" +
+                       "&id=eq." + a.ficha_id, { comSessao:true })
+        .then(function(r2){
+          var f = r2.ok && r2.dados && r2.dados[0];
+          if(!f) return null;
+          var nova = { aid:a.id, fid:a.ficha_id, acad:a.academia_id,
+                       nome:f.nome, semanas:f.semanas,
+                       conteudo:f.conteudo || [], carimbo:f.atualizada_em };
+          /* mesma entrega e mesma data de alteração = nada mudou. Redesenhar
+             à toa apagaria o que o aluno está digitando no campo de carga. */
+          if(F && F.aid === nova.aid && F.carimbo === nova.carimbo){ baixaEstado(); return F; }
+          trocaFicha(nova);
+          baixaEstado();
+          return nova;
+        });
+    })
+    .catch(function(){ return null; });          /* sem internet: a cópia basta */
+}
+
+/* ============================================================
+   O que o aluno marcou sobe para a conta
+
+   Uma linha por entrega em `registros`, com o estado inteiro daquela ficha
+   dentro. Poderia ser uma linha por série marcada — o banco aceita as duas
+   —, mas aí cada toque no celular viraria uma ida ao servidor, e treino
+   acontece justamente onde o sinal é ruim.
+
+   O preço disso é honesto e está escrito aqui: **o último aparelho a
+   mandar vence**. Se a mesma pessoa marcar séries em dois celulares sem
+   sinal e depois os dois acharem internet, o que subir por último manda.
+   Para um aluno com um celular, isso nunca acontece.
+
+   Nada é apagado por falha de rede: o que não subiu continua marcado como
+   pendente e tenta de novo no próximo save, ao voltar a internet e ao
+   abrir o app.
+   ============================================================ */
+var KSYNC = "meu-treino-sync";
+var Y = { aid:null, carimbo:null, sujo:false };
+var syncT = null;
+var CAIXAS = ["done","logs","notas","sess","ini"];
+
+function carregaSync(){
+  try{ var y = JSON.parse(localStorage.getItem(KSYNC) || "null"); if(y) Y = y; }catch(e){}
+}
+function guardaSync(){
+  try{ localStorage.setItem(KSYNC, JSON.stringify(Y)); }catch(e){}
+}
+
+function marcaSujo(){
+  if(!F || !F.aid) return;                  /* sem ficha não há o que sincronizar */
+  if(Y.aid !== F.aid){ Y = { aid:F.aid, carimbo:null, sujo:false }; }
+  Y.sujo = true; guardaSync();
+  clearTimeout(syncT);
+  syncT = setTimeout(enviaEstado, 4000);    /* espera a pessoa parar de digitar */
+}
+
+/* Só o que é desta entrega. As chaves começam pelo id dela, então a fatia
+   sai por prefixo — o histórico de fichas antigas fica onde está. */
+function fatiaDaFicha(){
+  var pre = kPre(), out = {};
+  CAIXAS.forEach(function(c){
+    out[c] = {};
+    Object.keys(S[c] || {}).forEach(function(k){
+      if(pre && k.indexOf(pre) === 0) out[c][k] = S[c][k];
+    });
+  });
+  return out;
+}
+
+function aplicaFatia(v){
+  var pre = kPre();
+  CAIXAS.forEach(function(c){
+    if(!S[c]) S[c] = {};
+    Object.keys(S[c]).forEach(function(k){ if(pre && k.indexOf(pre) === 0) delete S[c][k]; });
+    Object.keys((v && v[c]) || {}).forEach(function(k){ S[c][k] = v[c][k]; });
+  });
+}
+
+function enviaEstado(){
+  clearTimeout(syncT); syncT = null;
+  if(!sessao || !sessao.uid || !F || !F.aid || !Y.sujo) return Promise.resolve(false);
+  return supaFetch("/rest/v1/registros?on_conflict=atribuicao_id,chave", {
+    metodo:"POST", comSessao:true,
+    prefer:"resolution=merge-duplicates,return=representation",
+    corpo:{ academia_id:F.acad, atribuicao_id:F.aid, aluno_id:sessao.uid,
+            chave:"estado", valor:fatiaDaFicha() }
+  }).then(function(r){
+    if(!r.ok || !r.dados || !r.dados[0]) return false;
+    Y.aid = F.aid; Y.carimbo = r.dados[0].atualizado_em; Y.sujo = false; guardaSync();
+    return true;
+  }).catch(function(){ return false; });     /* sem internet: fica pendente */
+}
+
+function baixaEstado(){
+  if(!sessao || !sessao.uid || !F || !F.aid) return Promise.resolve(false);
+  return supaFetch("/rest/v1/registros?select=valor,atualizado_em&chave=eq.estado" +
+                   "&atribuicao_id=eq." + F.aid, { comSessao:true })
+    .then(function(r){
+      if(!r.ok || !r.dados) return false;
+      /* este aparelho tem coisa que o servidor não tem: mandar vem antes de
+         receber, senão o treino de hoje some para dar lugar ao de ontem */
+      if(Y.aid === F.aid && Y.sujo){ enviaEstado(); return false; }
+      var reg = r.dados[0];
+      if(!reg) return false;
+      if(Y.aid === F.aid && Y.carimbo === reg.atualizado_em) return false;
+      aplicaFatia(reg.valor);
+      Y = { aid:F.aid, carimbo:reg.atualizado_em, sujo:false }; guardaSync();
+      save(true);
+      renderHead(); renderView();
+      return true;
+    }).catch(function(){ return false; });
 }
 
 /* O crachá vence em uma hora. Renovar é por trás e sem travar nada: se
@@ -2676,12 +2900,20 @@ function renovaSessao(){
 
 function exigeLogin(){
   limpaSessao();
+  clearTimeout(syncT); syncT = null;
+  /* A ficha é da conta, não do aparelho: na academia o mesmo celular passa
+     de mão em mão, e deixar a ficha do anterior aberta seria entregar o
+     treino de alguém a quem saiu depois. O que ele MARCOU continua no
+     aparelho — apagar registro de treino sem pedir seria pior. */
+  guardaFicha(null);
   document.documentElement.classList.add("sem-conta");
   renderConta();
+  renderHead(); renderTabs(); renderView();
 }
 
 function sair(){
   if(!confirm("Sair da sua conta neste aparelho?")) return;
+  enviaEstado();          /* o que ainda não subiu sobe antes de fechar */
   if(sessao && sessao.token){
     supaFetch("/auth/v1/logout", { metodo:"POST", comSessao:true }).catch(function(){});
   }
@@ -2745,7 +2977,8 @@ document.getElementById("btnSair").addEventListener("click", sair);
    mostrar a mais nunca vira poder a mais.
    ============================================================ */
 var G = { academias: [], atual: null, pessoas: [], carregando: false, erro: "",
-          senhaNova: null, form: false };
+          senhaNova: null, form: false,
+          fichas: [], entregas: [], entregando: null, aviso: "" };
 var ROTULO_PAPEL = { aluno:"Aluno", professor:"Professor", recepcao:"Recepção",
                      gestor:"Gestor", admin:"Admin" };
 var ORDEM_PAPEL = ["aluno","professor","recepcao","gestor","admin"];
@@ -2762,6 +2995,14 @@ function podeCadastrarNa(id){
     return ["recepcao","gestor","admin"].indexOf(p) >= 0;
   });
 }
+/* Entregar ficha é do professor e do admin — a regra está no banco, aqui
+   só se decide o que aparece na tela. */
+function souProfNa(id){
+  return souSuporte() || papeisNa(id).some(function(p){
+    return ["professor","admin"].indexOf(p) >= 0;
+  });
+}
+
 function podeGerir(){
   return souSuporte() || G.academias.some(function(a){
     return (a.papeis||[]).some(function(p){
@@ -2801,11 +3042,85 @@ function carregaPessoas(id){
     .then(function(r){ G.pessoas = (r.ok && r.dados) || []; return G.pessoas; });
 }
 
+/* As fichas da academia e quem está com cada uma. Duas perguntas separadas
+   porque a resposta da segunda muda toda hora e a da primeira quase nunca. */
+function carregaFichas(id){
+  if(!id){ G.fichas = []; G.entregas = []; return Promise.resolve(); }
+  return Promise.all([
+    supaFetch("/rest/v1/fichas?select=id,nome,semanas,professor_id,atualizada_em" +
+              "&academia_id=eq." + id + "&order=atualizada_em.desc", { comSessao:true }),
+    supaFetch("/rest/v1/atribuicoes?select=id,ficha_id,aluno_id,inicio" +
+              "&academia_id=eq." + id + "&ativa=is.true&order=criada_em.desc",
+              { comSessao:true })
+  ]).then(function(r){
+    G.fichas   = (r[0].ok && r[0].dados) || [];
+    G.entregas = (r[1].ok && r[1].dados) || [];
+  });
+}
+
+/* Entregar uma ficha nova encerra a anterior do mesmo aluno: o app do aluno
+   mostra uma ficha por vez, e duas ativas só criariam dúvida sobre qual
+   vale. Se a anterior for de outro professor, o banco recusa em silêncio —
+   por isso o `Prefer`, que faz o servidor dizer quantas linhas mexeu. */
+function entregarFicha(fichaId, alunoId){
+  G.erro = ""; G.aviso = "";
+  var antigas = G.entregas.filter(function(e){ return e.aluno_id === alunoId; });
+  var encerraAntigas = antigas.length
+    ? supaFetch("/rest/v1/atribuicoes?academia_id=eq." + G.atual +
+                "&aluno_id=eq." + alunoId + "&ativa=is.true",
+                { metodo:"PATCH", comSessao:true, prefer:"return=representation",
+                  corpo:{ ativa:false, fim:dataISO() } })
+        .then(function(r){
+          var mexidas = (r.ok && r.dados && r.dados.length) || 0;
+          if(mexidas < antigas.length){
+            G.aviso = "A ficha anterior deste aluno é de outro professor e não " +
+                      "pôde ser encerrada. Ele vai treinar pela mais recente — " +
+                      "peça ao admin para encerrar a antiga.";
+          }
+        })
+    : Promise.resolve();
+
+  return encerraAntigas.then(function(){
+    return supaFetch("/rest/v1/atribuicoes", { metodo:"POST", comSessao:true,
+      corpo:{ academia_id:G.atual, ficha_id:fichaId, aluno_id:alunoId,
+              professor_id:sessao.uid, inicio:dataISO() } });
+  }).then(function(r){
+    if(!r.ok) throw new Error("recusado");
+    G.entregando = null;
+    return recarregaGestao();
+  }).then(function(){
+    if(alunoId === sessao.uid) sincronizaFicha();   /* entreguei a mim mesmo */
+  }).catch(function(){
+    G.erro = "O banco recusou a entrega. Quem entrega ficha é professor ou admin " +
+             "da academia, e o aluno precisa ser desta academia.";
+    renderView();
+  });
+}
+
+function encerrarEntrega(e){
+  G.erro = ""; G.aviso = "";
+  supaFetch("/rest/v1/atribuicoes?id=eq." + e.id,
+            { metodo:"PATCH", comSessao:true, prefer:"return=representation",
+              corpo:{ ativa:false, fim:dataISO() } })
+    .then(function(r){
+      /* zero linhas mexidas é recusa: em UPDATE o banco não dá erro nenhum */
+      if(!r.ok || !r.dados || !r.dados.length) throw new Error("recusado");
+      return recarregaGestao();
+    })
+    .then(function(){ if(e.aluno_id === sessao.uid) sincronizaFicha(); })
+    .catch(function(){
+      G.erro = "Não consegui encerrar. Esta entrega é de outro professor — " +
+               "só ele ou o admin da academia encerra.";
+      renderView();
+    });
+}
+
 function recarregaGestao(){
   G.carregando = true; if(S.tab === "gestao") renderView();
   return carregaAcademias()
     .then(function(){ return carregaPessoas(G.atual); })
-    .then(function(){ G.carregando = false; G.erro = ""; renderTabs();
+    .then(function(){ return carregaFichas(G.atual); })
+    .then(function(){ G.carregando = false; renderTabs();
                       if(S.tab === "gestao") renderView(); })
     .catch(function(){ G.carregando = false;
                        G.erro = "Não consegui falar com o servidor. Confira a internet.";
@@ -2878,7 +3193,8 @@ function renderGestao(){
     viewEl.appendChild(el('<div class="gvazio">Carregando…</div>'));
     return;
   }
-  if(G.erro) viewEl.appendChild(el('<div class="gerro">' + esc(G.erro) + '</div>'));
+  if(G.erro)  viewEl.appendChild(el('<div class="gerro">'  + esc(G.erro)  + '</div>'));
+  if(G.aviso) viewEl.appendChild(el('<div class="gaviso">' + esc(G.aviso) + '</div>'));
 
   viewEl.appendChild(el('<div class="sec">Academias</div>'));
 
@@ -2899,7 +3215,8 @@ function renderGestao(){
       '</div></div></button>');
     c.addEventListener("click", function(){
       G.atual = a.id; G.form = false; G.senhaNova = null;
-      carregaPessoas(a.id).then(renderView);
+      G.entregando = null; G.erro = ""; G.aviso = "";
+      carregaPessoas(a.id).then(function(){ return carregaFichas(a.id); }).then(renderView);
     });
     viewEl.appendChild(c);
   });
@@ -2951,7 +3268,16 @@ function renderGestao(){
     viewEl.appendChild(card);
   });
 
+  renderCadastroPessoa();
+  renderFichas();
+}
+
+/* Estava tudo dentro de `renderGestao`, e cada `return` daqui impedia o que
+   viesse depois de ser desenhado. Separado, dá para acrescentar seção sem
+   ficar caçando qual `return` engoliu a tela. */
+function renderCadastroPessoa(){
   if(!podeCadastrarNa(G.atual)) return;
+  var euAdmin = souAdminNa(G.atual);
 
   if(!G.form){
     var add = el('<button class="gbotao">+ Cadastrar pessoa</button>');
@@ -3007,12 +3333,100 @@ function renderGestao(){
   viewEl.appendChild(f);
 }
 
+/* As fichas da academia e quem está com cada uma. O professor entrega aqui;
+   montar a ficha ainda não existe, e enquanto não existir esta lista só tem
+   o que foi criado direto no banco. */
+function renderFichas(){
+  viewEl.appendChild(el('<div class="sec" style="margin-top:22px">Fichas</div>'));
+
+  if(!G.fichas.length){
+    viewEl.appendChild(el('<div class="gvazio">Nenhuma ficha nesta academia ainda. ' +
+      'A tela de montar ficha está em construção.</div>'));
+    return;
+  }
+
+  var podeEntregar = souProfNa(G.atual);
+  var nomeDe = {};
+  var alunos = [];
+  G.pessoas.forEach(function(v){
+    var p = v.pessoas || {};
+    if(!p.id) return;
+    nomeDe[p.id] = p.nome || "sem nome";
+    if(v.ativo && (v.papeis || []).indexOf("aluno") >= 0) alunos.push(p);
+  });
+
+  G.fichas.forEach(function(f){
+    var quem = G.entregas.filter(function(e){ return e.ficha_id === f.id; });
+    var card = el('<div class="gcard">' +
+      '<div class="gh"><div class="gn">' +
+        '<div class="t">' + esc(f.nome) + '</div>' +
+        '<div class="s">' + f.semanas + (f.semanas === 1 ? " semana" : " semanas") + ' · ' +
+          (quem.length ? quem.length + (quem.length === 1 ? " aluno treinando" : " alunos treinando")
+                       : "ninguém treinando") +
+        '</div>' +
+      '</div></div></div>');
+
+    quem.forEach(function(e){
+      var linha = el('<div class="quem">' +
+        '<div class="nm">' + esc(nomeDe[e.aluno_id] || "aluno de fora desta lista") + '</div>' +
+        '<div class="dt">desde ' + esc(String(e.inicio || "").split("-").reverse().join("/")) + '</div>' +
+        '</div>');
+      if(podeEntregar){
+        var x = el('<button type="button">Encerrar</button>');
+        x.addEventListener("click", function(){
+          if(confirm("Encerrar a ficha de " + (nomeDe[e.aluno_id] || "este aluno") + "?\n\n" +
+                     "Ela some do app dele. O que ele já marcou continua guardado."))
+            encerrarEntrega(e);
+        });
+        linha.appendChild(x);
+      }
+      card.appendChild(linha);
+    });
+
+    if(podeEntregar){
+      if(G.entregando !== f.id){
+        var b = el('<button class="mini" style="margin-top:12px">Entregar a um aluno</button>');
+        b.addEventListener("click", function(){
+          G.entregando = f.id; G.erro = ""; G.aviso = ""; renderView();
+        });
+        card.appendChild(b);
+      } else if(!alunos.length){
+        card.appendChild(el('<div class="gaviso">Nenhum aluno cadastrado nesta ' +
+          'academia ainda. Cadastre a pessoa primeiro, ali em cima.</div>'));
+      } else {
+        card.appendChild(el('<div class="gaviso">Toque no aluno que vai receber. ' +
+          'Se ele já estiver com outra ficha, ela é encerrada — o app do aluno ' +
+          'mostra uma ficha por vez.</div>'));
+        var lista = el('<div class="alunos"></div>');
+        alunos.forEach(function(p){
+          var jaTem = quem.some(function(e){ return e.aluno_id === p.id; });
+          var ab = el('<button type="button"' + (jaTem ? " disabled" : "") + '>' +
+                      esc(p.nome || "sem nome") + (jaTem ? " · já está" : "") + '</button>');
+          if(!jaTem) ab.addEventListener("click", function(){
+            ab.disabled = true; ab.textContent = "Entregando…";
+            entregarFicha(f.id, p.id);
+          });
+          lista.appendChild(ab);
+        });
+        card.appendChild(lista);
+        var cc = el('<button class="mini" style="margin-top:10px">Cancelar</button>');
+        cc.addEventListener("click", function(){ G.entregando = null; renderView(); });
+        card.appendChild(cc);
+      }
+    }
+
+    viewEl.appendChild(card);
+  });
+}
+
 /* ============================================================
    Início
    ============================================================ */
 load();
-if(S.week<1||S.week>4) S.week=1;
-if(S.day<0||S.day>=PLAN.length) S.day=0;   /* com plano vazio vira 0 e ninguém usa */
+/* A ficha guardada entra ANTES do primeiro desenho: senão o app pisca a
+   tela de "sem treino" para quem tem treino. Ela também acerta a semana e
+   o dia, que dependem do tamanho da ficha. */
+carregaFichaLocal();
 if(["treino","sim","hist","gestao"].indexOf(S.tab)<0) S.tab="treino";
 tafInit();
 applyTheme(); syncCfgUI(); renderCapa();
@@ -3022,7 +3436,15 @@ renderHead(); renderTabs(); renderView(); applyWake();
    crachá. Entrar exige internet uma vez — depois o app abre offline com a
    sessão guardada, que é o que faz sentido para quem treina. */
 carregaSessao();
+carregaSync();
 renderConta();
+
+/* Voltar a ter internet e sair da tela são os dois momentos em que vale
+   tentar de novo o que ficou pendente. */
+window.addEventListener("online", function(){ enviaEstado(); });
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden) enviaEstado();
+});
 if(sessao){
   if(Date.now() > (sessao.expira || 0) - 60000) renovaSessao().then(buscaPerfil);
   else buscaPerfil();

@@ -130,45 +130,81 @@ criar academia devolve 403.
 definitiva e a recepcao fica sabendo a senha do aluno. Resolver antes de
 entrar academia de verdade.
 
+## A ficha vira dado — feito
+
+`PLAN` não é mais escrito à mão: é o `conteudo` da ficha que o professor
+entregou, baixado do banco e **guardado no aparelho** (`meu-treino-ficha`).
+O formato do array é o MESMO nos dois lados de propósito — qualquer tradução
+entre banco e tela seria um lugar a mais para o treino sair diferente do que
+o professor escreveu.
+
+O caminho inteiro: `fichas.conteudo` → `atribuicoes` (a entrega) → app do
+aluno → `registros` (o que ele marcou).
+
+Regras que sustentam isso e não devem ser desfeitas:
+
+- **Falha de rede não apaga a ficha.** Só uma resposta clara do servidor
+  dizendo "não há entrega ativa" tira a ficha do aparelho. Mesmo princípio do
+  crachá: ficar sem treino no meio do exercício é pior do que estar um dia
+  desatualizado.
+- **`sair` leva a ficha junto.** Na academia o celular passa de mão em mão. O
+  que o aluno MARCOU fica — apagar registro de treino sem pedir seria pior.
+- **A chave começa pela entrega** (`kPre()` = 8 primeiros dígitos do
+  `atribuicao_id`). Sem isso, duas fichas com sessões de mesmo id nasceriam
+  com as séries da anterior já marcadas.
+- **O número de semanas é da ficha** (`NSEM`), não mais 4 fixo. `bs()` repete
+  a última semana escrita quando o professor variou só algumas — nunca
+  inventa progressão.
+
+### O que sobe de volta: uma linha por entrega
+
+`registros` guarda **uma linha por entrega**, `chave = 'estado'`, com o estado
+inteiro daquela ficha dentro do `valor`. O banco aceitaria uma linha por série
+marcada, mas aí cada toque viraria uma ida ao servidor — e treino acontece
+justamente onde o sinal é ruim.
+
+O preço está escrito no código: **o último aparelho a mandar vence**. Para um
+aluno com um celular, nunca acontece. Se um dia virar problema, o caminho é
+uma linha por chave, e o formato de dentro já é esse.
+
+`save()` marca pendente e agenda a subida; `save(true)` grava calado, e é o
+que se usa quando o que mudou VEIO do servidor — sem isso o app devolveria ao
+servidor o que acabou de receber, para sempre.
+
+**Baixar vem depois de mandar.** Se o aparelho tem coisa que o servidor não
+tem, ele manda primeiro; senão o treino de hoje sumiria para dar lugar ao de
+ontem.
+
+### Entregar ficha — feito. Montar ficha — não.
+
+A aba Gestão lista as fichas da academia, mostra quem está com cada uma,
+entrega a um aluno e encerra. **Montar a ficha ainda não existe**: até o
+cliente escolher entre os três estudos (A: professor escreve; B: escolhe de
+uma lista; C: entrega um programa pronto), a lista só tem o que for criado
+direto no banco.
+
+Entregar uma ficha nova **encerra a anterior do mesmo aluno**, porque o app
+mostra uma ficha por vez. Se a anterior for de outro professor, o banco recusa
+**em silêncio** — por isso o `Prefer: return=representation` nos UPDATE, que
+faz o servidor dizer quantas linhas mexeu. Sem ele, "encerrei" apareceria na
+tela sem nada ter acontecido.
+
+**Armadilha viva:** `kSess`, `kDone` e `kLog` montam a chave com `PLAN[d].id`.
+Sem ficha, `PLAN[d]` não existe e o app quebrava **uma vez por segundo**, no
+relógio do topo. As três (mais `totalSets`, `doneSets` e `bs`) têm guarda.
+Qualquer função nova que indexe `PLAN` precisa da mesma.
+
 ## O trabalho que ainda não foi feito
 
-### O plano precisa virar dado
+### As provas ainda são código
 
-Hoje `PLAN` é um array escrito à mão dentro do `index.html`, e o app inteiro
-assume **um plano de 4 semanas**. Enquanto isso não mudar, "vários planos" não
-existe. Os pontos que travam:
+`PROVAS` tem as cinco provas do TAF da PCPR escritas no `index.html`. Numa
+academia comum elas não fazem sentido — por isso `MOSTRA_SIMULADO = false`.
+Se um cliente preparar para concurso, elas precisam virar dado da ficha, do
+mesmo jeito que o treino virou.
 
-| Onde | O que assume hoje |
-|---|---|
-| `PLAN` | Um array só, no código |
-| `renderHead()` | `for(var w=1; w<=4; w++)` — quatro semanas fixas |
-| Fim de bloco | Checa `S.sess[kSess(4,d)]` — semana 4 é o fim |
-| Chaves do estado | `w{semana}\|{idSessao}\|…` — sem dimensão de plano |
-| `PROVAS` | As cinco provas do TAF da PCPR, no código |
-
-**A armadilha das chaves.** Se o formato mudar sem migração, o histórico de quem
-já usa o app quebra. Ao introduzir a dimensão de plano, ou migre os dados
-existentes ou troque a versão da chave e converta. O mesmo vale para
-`snapshot()`/`tafInit()`, que cuidam do backup: arquivo antigo não tem campo
-novo.
-
-**Decisões em aberto** (perguntar ao usuário antes de escolher):
-como um plano chega ao aluno (arquivo? link? QR? colado como texto?); quem
-escreve o plano (o professor edita no app ou recebe pronto?); se um aparelho
-guarda vários planos ao mesmo tempo ou um por vez; se o número de semanas passa
-a ser livre.
-
-### O plano de exemplo foi embora
-
-`PLAN` agora é `[]`. O treino não mora mais no código: vem da ficha que o
-professor monta. Enquanto essa parte não existir, o app abre no **estado
-vazio** (`renderSemTreino`), que é exatamente o que um aluno recém-cadastrado
-vê — não é erro, é o normal dele.
-
-**Armadilha que isso revelou:** `kSess`, `kDone` e `kLog` montavam a chave com
-`PLAN[d].id`. Com o plano vazio, `PLAN[d]` não existe e o app quebrava **uma
-vez por segundo**, no relógio do topo. As três (mais `totalSets` e `doneSets`)
-agora têm guarda. Qualquer função nova que indexe `PLAN` precisa da mesma.
+O que **não** muda nunca: as METAS não vêm do código. Os índices mudam por
+idade e sexo, então quem digita é o usuário, com o edital na mão.
 
 ### Simulado desligado, não apagado
 
@@ -197,6 +233,9 @@ Por isso, e **nunca volte atrás nisso**:
 | `localStorage` | `taf-pcpr-v1` | `meu-treino-v1` |
 | `sessionStorage` | `taf-aberto` | `meu-treino-aberto` |
 | Cache do SW (`VERSAO`) | `taf-vN` | `meu-treino-vN` |
+| Sessão | — | `meu-treino-sessao` |
+| Ficha baixada | — | `meu-treino-ficha` |
+| Estado da sincronia | — | `meu-treino-sync` |
 
 Ao criar qualquer chave nova, prefixe com `meu-treino-`.
 
