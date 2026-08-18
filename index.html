@@ -22,6 +22,10 @@
    apagado quando o app é fechado de verdade. Roda aqui no <head>, antes de
    a página desenhar, senão a capa piscaria antes de sumir. */
 try{ if(sessionStorage.getItem("meu-treino-aberto")) document.documentElement.className += " ja-abriu"; }catch(e){}
+/* Quem nao entrou ainda ve a tela de login no lugar do app. A decisao e
+   tomada aqui, antes de a pagina desenhar, senao o app apareceria por um
+   instante antes de sumir. */
+try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.className += " sem-conta"; }catch(e){}
 </script>
 </head>
 <body>
@@ -447,6 +451,34 @@ try{ if(sessionStorage.getItem("meu-treino-aberto")) document.documentElement.cl
         background:var(--ground);padding:calc(26px + env(safe-area-inset-top)) 22px
         calc(26px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden}
   html.ja-abriu .capa{display:none}
+
+  /* ---------- entrar ----------
+     Herda o visual da capa de propósito: a tela de login É a porta de
+     entrada do app, então carrega a marca em vez de ser um formulário
+     solto e sem dono. */
+  .login{position:fixed;inset:0;z-index:130;display:none;flex-direction:column;
+         background:var(--ground);padding:calc(26px + env(safe-area-inset-top)) 22px
+         calc(26px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden}
+  html.sem-conta .login{display:flex}
+  html.sem-conta .capa,html.sem-conta .wrap,html.sem-conta .dock,
+  html.sem-conta .upd{display:none}
+  .login .campo{text-align:left;margin-top:15px}
+  .login .campo label{display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+                      font-weight:700;color:var(--ink-3);margin-bottom:7px}
+  .login .campo input{width:100%;height:52px;border:1px solid var(--line);border-radius:11px;
+                      background:var(--surface);color:var(--ink);font-size:16px;padding:0 14px;
+                      font-family:var(--f-body);-webkit-appearance:none}
+  .login .campo input:focus{outline:none;border-color:var(--accent);
+                            box-shadow:0 0 0 3px var(--accent-soft)}
+  .login .erro{margin-top:15px;border:1px solid var(--warn);border-radius:10px;
+               padding:11px 14px;font-size:14px;line-height:1.45;text-align:left;
+               color:var(--warn);display:none}
+  .login .erro.on{display:block}
+  .login .go[disabled]{opacity:.55}
+  .conta-linha{display:flex;align-items:center;gap:11px;min-width:0}
+  .conta-linha .av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;
+                   place-items:center;background:var(--accent-soft);color:var(--accent);
+                   font-family:var(--f-display);font-size:17px;font-weight:700}
   .capa::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.42;
     background:repeating-linear-gradient(90deg,transparent 0 39px,var(--line-soft) 39px 40px)}
   /* o brilho é desenhado dentro da própria caixa (gradiente dimensionado),
@@ -530,6 +562,34 @@ try{ if(sessionStorage.getItem("meu-treino-aberto")) document.documentElement.cl
     <button class="go" id="capaGo">Iniciar meu treino</button>
     <button class="inst" id="capaInst" style="display:none"><i>+</i>Instalar na tela inicial</button>
     <p class="rodape">Seus registros ficam só neste aparelho.</p>
+  </div>
+</div>
+
+<div class="login" id="login">
+  <div class="capa-in">
+    <svg class="capa-marca" viewBox="0 0 96 96" role="img" aria-label="Meu Treino">
+      <rect width="96" height="96" rx="21" fill="var(--accent)"></rect>
+      <rect x="15.2" y="20.8" width="65.6" height="10.9" rx="1.5" fill="var(--ground)"></rect>
+      <rect x="41.8" y="31.7" width="12.4" height="43.5" rx="1.7" fill="var(--ground)"></rect>
+    </svg>
+    <h1>Meu Treino<span>.</span></h1>
+    <p class="promessa">Entre com a conta que a sua academia criou para você.</p>
+    <form id="loginForm">
+      <div class="campo">
+        <label for="loginId">E-mail ou telefone</label>
+        <input id="loginId" name="username" type="text" autocomplete="username"
+               autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      </div>
+      <div class="campo">
+        <label for="loginSenha">Senha</label>
+        <input id="loginSenha" name="password" type="password"
+               autocomplete="current-password" required>
+      </div>
+      <div class="erro" id="loginErro" role="alert"></div>
+      <button class="go" type="submit" id="loginGo">Entrar</button>
+    </form>
+    <p class="rodape">Esqueceu a senha? Peça para a recepção da sua academia
+      cadastrar uma nova.</p>
   </div>
 </div>
 
@@ -630,6 +690,16 @@ try{ if(sessionStorage.getItem("meu-treino-aberto")) document.documentElement.cl
 <div class="sheet" id="sheet">
   <div class="panel">
     <h3>Ajustes e dados</h3>
+    <div class="opt">
+      <div class="conta-linha">
+        <div class="av" id="contaAv">?</div>
+        <div style="min-width:0">
+          <div class="ot" id="contaNome">—</div>
+          <div class="od" id="contaEmail"></div>
+        </div>
+      </div>
+      <button class="mini" id="btnSair">Sair</button>
+    </div>
     <div class="opt">
       <div><div class="ot">Versão do app</div><div class="od" id="verInfo">verificando…</div></div>
       <button class="mini" id="btnVer">Procurar<br>atualização</button>
@@ -2372,6 +2442,204 @@ if("serviceWorker" in navigator){
 }
 
 /* ============================================================
+   Conta — entrar, sair e saber quem está usando
+
+   Sem biblioteca. O Supabase é uma API REST comum, e as quatro chamadas
+   que o app precisa (descobrir o e-mail pelo telefone, entrar, renovar e
+   sair) cabem em poucas linhas. A biblioteca oficial passa de 100 KB —
+   num app de 240 KB que tem que funcionar sem internet, não compensa.
+   ============================================================ */
+var SUPA = {
+  url:   "https://ivvzsneumirucwilpbrj.supabase.co",
+  chave: "sb_publishable_zIG-iXjQacy0RPQ4SYVXRA_2YlgiFgC"
+};
+/* Esta chave é pública de propósito: ela só diz qual é o projeto, e fica à
+   vista em qualquer app que use Supabase. Quem protege os dados são as
+   regras dentro do banco, que decidem o que cada pessoa logada enxerga. */
+
+var KSESSAO = "meu-treino-sessao";
+var sessao = null;
+
+function carregaSessao(){
+  try{ sessao = JSON.parse(localStorage.getItem(KSESSAO) || "null"); }
+  catch(e){ sessao = null; }
+  return sessao;
+}
+function guardaSessao(s){
+  sessao = s;
+  try{ localStorage.setItem(KSESSAO, JSON.stringify(s)); }catch(e){}
+}
+function limpaSessao(){
+  sessao = null;
+  try{ localStorage.removeItem(KSESSAO); }catch(e){}
+}
+
+/* Uma chamada ao servidor. `comSessao` troca a chave pública pelo crachá de
+   quem está logado — é o que faz o banco devolver os dados dela. */
+function supaFetch(caminho, o){
+  o = o || {};
+  var cabec = { "apikey": SUPA.chave, "Content-Type": "application/json" };
+  cabec["Authorization"] = "Bearer " +
+    (o.comSessao && sessao && sessao.token ? sessao.token : SUPA.chave);
+  return fetch(SUPA.url + caminho, {
+    method: o.metodo || "GET",
+    headers: cabec,
+    body: o.corpo ? JSON.stringify(o.corpo) : undefined
+  }).then(function(r){
+    return r.text().then(function(txt){
+      var d = null;
+      try{ d = txt ? JSON.parse(txt) : null; }catch(e){}
+      return { ok:r.ok, status:r.status, dados:d };
+    });
+  });
+}
+
+function primeiroNome(n){
+  n = String(n || "").trim();
+  return n ? n.split(/\s+/)[0] : "";
+}
+
+function entrar(identificador, senha){
+  var id = String(identificador || "").trim();
+  var digitos = id.replace(/\D/g, "");
+  var achaEmail;
+
+  /* Digitou número: o servidor diz a qual conta ele pertence, e o login
+     acontece com o e-mail correspondente. Nenhum SMS é enviado. */
+  if(id.indexOf("@") < 0 && digitos.length >= 10){
+    achaEmail = supaFetch("/rest/v1/rpc/email_por_telefone", {
+      metodo:"POST", corpo:{ p_telefone: digitos }
+    }).then(function(r){
+      if(!r.ok) throw new Error("servidor");
+      if(!r.dados) throw new Error("telefone");
+      return r.dados;
+    });
+  } else {
+    achaEmail = Promise.resolve(id);
+  }
+
+  return achaEmail.then(function(email){
+    return supaFetch("/auth/v1/token?grant_type=password", {
+      metodo:"POST", corpo:{ email:email, password:senha }
+    });
+  }).then(function(r){
+    if(!r.ok || !r.dados || !r.dados.access_token){
+      var cod = r.dados && (r.dados.error_code || r.dados.error);
+      throw new Error(cod === "invalid_credentials" ? "credenciais" : "servidor");
+    }
+    guardaSessao({
+      token:  r.dados.access_token,
+      renova: r.dados.refresh_token,
+      expira: Date.now() + (r.dados.expires_in || 3600) * 1000,
+      uid:    r.dados.user && r.dados.user.id,
+      email:  r.dados.user && r.dados.user.email,
+      nome:   ""
+    });
+    return buscaPerfil();
+  });
+}
+
+/* O nome vem da tabela de pessoas, não do login: é lá que ele é editado. */
+function buscaPerfil(){
+  if(!sessao || !sessao.uid) return Promise.resolve(null);
+  return supaFetch("/rest/v1/pessoas?select=nome,email&id=eq." + sessao.uid, { comSessao:true })
+    .then(function(r){
+      if(r.ok && r.dados && r.dados[0]){
+        sessao.nome  = r.dados[0].nome || "";
+        sessao.email = r.dados[0].email || sessao.email;
+        guardaSessao(sessao);
+        renderConta();
+      }
+      return sessao;
+    })
+    .catch(function(){ return sessao; });   /* sem internet: fica com o que já sabia */
+}
+
+/* O crachá vence em uma hora. Renovar é por trás e sem travar nada: se
+   estiver sem internet, o app segue com o que está guardado. */
+function renovaSessao(){
+  if(!sessao || !sessao.renova) return Promise.resolve(false);
+  return supaFetch("/auth/v1/token?grant_type=refresh_token", {
+    metodo:"POST", corpo:{ refresh_token: sessao.renova }
+  }).then(function(r){
+    if(!r.ok || !r.dados || !r.dados.access_token){
+      /* recusa explícita do servidor = crachá cancelado, tem que entrar de novo.
+         Falha de rede cai no catch abaixo e NÃO desloga ninguém. */
+      if(r.status === 400 || r.status === 401) exigeLogin();
+      return false;
+    }
+    sessao.token  = r.dados.access_token;
+    sessao.renova = r.dados.refresh_token || sessao.renova;
+    sessao.expira = Date.now() + (r.dados.expires_in || 3600) * 1000;
+    guardaSessao(sessao);
+    return true;
+  }).catch(function(){ return false; });
+}
+
+function exigeLogin(){
+  limpaSessao();
+  document.documentElement.classList.add("sem-conta");
+  renderConta();
+}
+
+function sair(){
+  if(!confirm("Sair da sua conta neste aparelho?")) return;
+  if(sessao && sessao.token){
+    supaFetch("/auth/v1/logout", { metodo:"POST", comSessao:true }).catch(function(){});
+  }
+  exigeLogin();
+  sheet.classList.remove("open");
+}
+
+function renderConta(){
+  var elNome = document.getElementById("contaNome"),
+      elMail = document.getElementById("contaEmail"),
+      elAv   = document.getElementById("contaAv"),
+      elSair = document.getElementById("btnSair");
+  if(!elNome) return;
+  if(sessao){
+    var pn = primeiroNome(sessao.nome) || (sessao.email || "").split("@")[0];
+    elNome.textContent = pn || "Minha conta";
+    elMail.textContent = sessao.email || "";
+    elAv.textContent   = (pn || "?").charAt(0).toUpperCase();
+    elSair.style.display = "";
+  } else {
+    elNome.textContent = "Ninguém conectado";
+    elMail.textContent = "";
+    elAv.textContent   = "?";
+    elSair.style.display = "none";
+  }
+}
+
+document.getElementById("loginForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var btn = document.getElementById("loginGo"),
+      err = document.getElementById("loginErro");
+  err.classList.remove("on");
+  btn.disabled = true; btn.textContent = "Entrando…";
+  try{ ac(); }catch(e2){}          /* toque do usuário: aproveita e libera o áudio */
+
+  entrar(document.getElementById("loginId").value,
+         document.getElementById("loginSenha").value)
+    .then(function(){
+      document.getElementById("loginSenha").value = "";
+      document.documentElement.classList.remove("sem-conta");
+      renderConta(); renderCapa(); renderHead(); renderTabs(); renderView();
+    })
+    .catch(function(erro){
+      var m = erro && erro.message;
+      err.textContent =
+        m === "telefone"    ? "Não achei conta com esse telefone. Tente pelo e-mail." :
+        m === "credenciais" ? "E-mail, telefone ou senha não conferem." :
+        "Não consegui falar com o servidor. Confira a internet e tente de novo.";
+      err.classList.add("on");
+    })
+    .then(function(){ btn.disabled = false; btn.textContent = "Entrar"; });
+});
+
+document.getElementById("btnSair").addEventListener("click", sair);
+
+/* ============================================================
    Início
    ============================================================ */
 load();
@@ -2381,6 +2649,16 @@ if(["treino","sim","hist"].indexOf(S.tab)<0) S.tab="treino";
 tafInit();
 applyTheme(); syncCfgUI(); renderCapa();
 renderHead(); renderTabs(); renderView(); applyWake();
+
+/* A classe `sem-conta` já foi decidida no <head>; aqui só se cuida do
+   crachá. Entrar exige internet uma vez — depois o app abre offline com a
+   sessão guardada, que é o que faz sentido para quem treina. */
+carregaSessao();
+renderConta();
+if(sessao){
+  if(Date.now() > (sessao.expira || 0) - 60000) renovaSessao().then(buscaPerfil);
+  else buscaPerfil();
+}
 
 })();
 </script>

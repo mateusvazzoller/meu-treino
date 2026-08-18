@@ -62,6 +62,48 @@ erro**: em `INSERT` dá, em `UPDATE`/`DELETE` ela apenas não mexe em linha
 nenhuma, em silêncio. Um teste que só espera exceção passa achando que
 falhou — foi um erro real na primeira versão do `02-teste.sql`.
 
+## Conta e login — feito
+
+O app exige entrar. A tela de login substitui tudo quando não há sessão, e a
+decisão é tomada por um script no `<head>` (classe `sem-conta`), antes de a
+página desenhar — mesmo motivo da capa: senão o app pisca antes de sumir.
+
+**Sem biblioteca, de propósito.** O Supabase é REST comum, e as quatro chamadas
+que o app usa (descobrir e-mail pelo telefone, entrar, renovar, sair) couberam
+em ~120 linhas. A biblioteca oficial passa de 100 KB num app de 240 KB que tem
+que funcionar sem internet. Se um dia entrar `supabase-js`, ela precisa ser
+**arquivo do repositório** e entrar em `ARQUIVOS` no `sw.js` — nunca CDN, que
+quebra o offline.
+
+**A chave `sb_publishable_...` no código é pública de propósito.** Ela só
+identifica o projeto e está à vista em qualquer app Supabase. Quem protege os
+dados são as regras do banco. A chave `service_role` **nunca** entra aqui.
+
+**Entrar exige internet uma vez; depois o app abre offline.** A sessão fica em
+`meu-treino-sessao`. Regra que não pode ser desfeita: falha de rede ao renovar
+o crachá **não desloga** — só recusa explícita do servidor (400/401) desloga.
+Testado com o servidor inalcançável e o crachá vencido: o app abriu e a sessão
+sobreviveu.
+
+**Sair não apaga o treino local.** Hoje os registros ainda são do aparelho, não
+da conta. Quando a sincronização existir (fase 5), isso vira uma decisão: ou o
+`sair` limpa os dados locais, ou eles passam a ser guardados por pessoa. Num
+aparelho compartilhado da academia, deixar como está vaza o treino de um aluno
+para o próximo.
+
+**Entrar pelo telefone** usa `email_por_telefone` e aceita o número formatado
+(`(41) 98888-7777`). Só funciona para quem tem telefone em `pessoas` — quem não
+tem entra pelo e-mail.
+
+### Armadilha ao criar usuário à mão para testar
+
+Usuário inserido direto em `auth.users` por SQL faz o login devolver
+`500 Database error querying schema`. O motivo: o GoTrue espera **texto vazio**
+nas colunas de token (`confirmation_token`, `recovery_token`, etc.) e o insert
+deixa nulo. A correção é preencher todas as colunas de texto com `''`. Usuário
+criado pelo painel não tem esse problema — só `phone` fica nulo, e isso é
+normal.
+
 ## O trabalho que ainda não foi feito
 
 ### O plano precisa virar dado
