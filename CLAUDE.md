@@ -104,6 +104,26 @@ deixa nulo. A correção é preencher todas as colunas de texto com `''`. Usuár
 criado pelo painel não tem esse problema — só `phone` fica nulo, e isso é
 normal.
 
+## A recepcao cadastra — feito no servidor, falta a tela
+
+Cadastro publico esta LIGADO no Supabase mas exige confirmacao por e-mail, e
+nao ha e-mail: toda tentativa devolve `over_email_send_rate_limit`. Por isso a
+conta do aluno nasce pela recepcao, na funcao `servidor/criar-pessoa`.
+
+Regra que organiza aquela funcao e nao deve ser afrouxada: **a chave de
+administracao serve so para criar o login**. Conferir quem chama e criar o
+vinculo vao com o cracha de quem chamou, para a regra do banco decidir em vez
+do codigo. Ver `servidor/LEIA-ME.md`.
+
+A regra `admin cria vinculo` estava mais estrita que a tabela de papeis deste
+arquivo — a recepcao nao conseguiria matricular ninguem. Corrigido: recepcao e
+gestor vinculam, mas **so como `aluno`**; qualquer outro papel continua sendo
+do admin.
+
+Falta a tela: criar academia (dono do sistema), listar pessoas, cadastrar e
+dar/tirar papel. E falta troca de senha no primeiro acesso — hoje a
+provisoria vira definitiva.
+
 ## O trabalho que ainda não foi feito
 
 ### O plano precisa virar dado
