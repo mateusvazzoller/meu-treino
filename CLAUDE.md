@@ -126,9 +126,32 @@ chips. Ela so aparece para quem tem o que gerir — mas esconder e arrumacao,
 nao protecao: testado forcando a API como aluna, ela enxerga so a si mesma e
 criar academia devolve 403.
 
-**Ainda falta troca de senha no primeiro acesso.** Hoje a provisoria vira
-definitiva e a recepcao fica sabendo a senha do aluno. Resolver antes de
-entrar academia de verdade.
+### A senha provisória não é mais definitiva — feito
+
+A conta nasce com `user_metadata.trocar_senha = true` (posto pela função
+`criar-pessoa`), e o app põe a tela **"Crie a sua senha"** na frente de tudo
+no primeiro acesso. Salvar manda um `PUT /auth/v1/user` com a senha nova e
+`data:{trocar_senha:false}` — **uma chamada só**, o que evita o estado
+intermediário de senha trocada com o aviso ainda ligado.
+
+Não houve tabela nem regra nova de propósito: o aviso vive no próprio
+usuário. A contrapartida, escrita no código: a pessoa consegue, em tese,
+desligar o aviso pela API sem trocar a senha. **Só ela perde com isso, e
+nada no sistema usa esse campo para proteger dado nenhum** — é lembrete, não
+tranca.
+
+A senha digitada no login fica numa variável em memória (`senhaAntiga`) só
+até a troca acontecer. É o que permite recusar "trocar" a senha pela mesma
+que a recepção anotou no papel. Nunca é gravada em lugar nenhum, e some no
+`sair`.
+
+Nos Ajustes há **Trocar senha** para qualquer momento; aí, e só aí, aparece
+o "Agora não".
+
+**Quem já tinha conta antes disto não é incomodado**: sem o campo no
+usuário, o app não pede nada. As duas contas criadas durante o
+desenvolvimento continuam com a senha que têm — se uma delas for virar conta
+de aluno de verdade, troque pelos Ajustes.
 
 ## A ficha vira dado — feito
 

@@ -77,6 +77,10 @@ versão nova — o Supabase guarda o histórico e troca sem interrupção.
 Oito caracteres em dois blocos (`VRA6-ZCFZ`), sem `0`, `O`, `1`, `I` nem `l`,
 porque ela vai ser escrita à mão num papel e digitada por outra pessoa.
 
-Ainda **não existe** troca de senha no primeiro acesso. Enquanto não existir, a
-senha provisória vira a senha definitiva — o que é aceitável para começar, mas
-precisa ser resolvido antes de entrar academia de verdade.
+Ela é **de passagem**: a conta nasce com `user_metadata.trocar_senha = true`, e
+o app põe a tela "Crie a sua senha" na frente de tudo no primeiro acesso. O
+aluno escolhe uma senha que a recepção não conhece, e o app recusa se ele tentar
+repetir a provisória.
+
+Isso não substitui recuperação por e-mail, que continua não existindo: quem
+esquecer a senha ainda depende da recepção cadastrar outra.

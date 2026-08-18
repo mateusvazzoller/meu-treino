@@ -125,7 +125,10 @@ Deno.serve(async (req) => {
       email,
       password: senha,
       email_confirm: true,           // não há e-mail para confirmar
-      user_metadata: { nome, telefone },
+      // `trocar_senha` faz o app pedir uma senha nova no primeiro acesso.
+      // Sem isto, a senha que a recepção anotou no papel seria definitiva —
+      // e existiria para sempre uma pessoa a mais capaz de entrar na conta.
+      user_metadata: { nome, telefone, trocar_senha: true },
     }),
   });
 

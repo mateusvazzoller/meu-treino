@@ -25,7 +25,11 @@ try{ if(sessionStorage.getItem("meu-treino-aberto")) document.documentElement.cl
 /* Quem nao entrou ainda ve a tela de login no lugar do app. A decisao e
    tomada aqui, antes de a pagina desenhar, senao o app apareceria por um
    instante antes de sumir. */
-try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.className += " sem-conta"; }catch(e){}
+try{
+  var s0 = JSON.parse(localStorage.getItem("meu-treino-sessao") || "null");
+  if(!s0)          document.documentElement.className += " sem-conta";
+  else if(s0.trocar) document.documentElement.className += " trocar-senha";
+}catch(e){}
 </script>
 </head>
 <body>
@@ -459,9 +463,14 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
   .login{position:fixed;inset:0;z-index:130;display:none;flex-direction:column;
          background:var(--ground);padding:calc(26px + env(safe-area-inset-top)) 22px
          calc(26px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden}
-  html.sem-conta .login{display:flex}
+  html.sem-conta .login:not(.trocar){display:flex}
   html.sem-conta .capa,html.sem-conta .wrap,html.sem-conta .dock,
   html.sem-conta .upd{display:none}
+  /* A troca de senha é a mesma porta, com outra pergunta: quem chegou aqui
+     está logado, mas ainda não escolheu a senha dele. */
+  html.trocar-senha .login.trocar{display:flex}
+  html.trocar-senha .capa,html.trocar-senha .wrap,html.trocar-senha .dock,
+  html.trocar-senha .upd{display:none}
   .login .campo{text-align:left;margin-top:15px}
   .login .campo label{display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
                       font-weight:700;color:var(--ink-3);margin-bottom:7px}
@@ -694,6 +703,34 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
   </div>
 </div>
 
+<div class="login trocar" id="trocaTela">
+  <div class="capa-in">
+    <svg class="capa-marca" viewBox="0 0 96 96" role="img" aria-label="Meu Treino">
+      <rect width="96" height="96" rx="21" fill="var(--accent)"></rect>
+      <rect x="15.2" y="20.8" width="65.6" height="10.9" rx="1.5" fill="var(--ground)"></rect>
+      <rect x="41.8" y="31.7" width="12.4" height="43.5" rx="1.7" fill="var(--ground)"></rect>
+    </svg>
+    <h1 id="tsTitulo">Crie a sua senha<span>.</span></h1>
+    <p class="promessa" id="tsSub">A senha que a recepção te entregou é provisória —
+      e ela também a conhece. Escolha agora uma que só você saiba.</p>
+    <form id="trocaForm">
+      <div class="campo">
+        <label for="tsNova">Nova senha</label>
+        <input id="tsNova" name="new-password" type="password" autocomplete="new-password" required>
+      </div>
+      <div class="campo">
+        <label for="tsRepete">Repita a nova senha</label>
+        <input id="tsRepete" name="confirm-password" type="password" autocomplete="new-password" required>
+      </div>
+      <div class="erro" id="tsErro" role="alert"></div>
+      <button class="go" id="tsGo" type="submit">Salvar senha</button>
+    </form>
+    <button class="inst" id="tsCancelar" style="display:none">Agora não</button>
+    <p class="rodape">Pelo menos 8 caracteres. Anote onde você lembre: ainda não há
+      e-mail de recuperação — se esquecer, a recepção cadastra outra.</p>
+  </div>
+</div>
+
 <div class="sheet" id="isheet">
   <div class="panel">
     <h3 id="iTitulo">Colocar na tela inicial</h3>
@@ -757,7 +794,10 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
           <div class="od" id="contaEmail"></div>
         </div>
       </div>
-      <button class="btn-sair" id="btnSair">Sair da conta</button>
+      <div class="btnrow" style="margin-top:12px">
+        <button id="btnSenha">Trocar senha</button>
+        <button class="btn-sair" id="btnSair">Sair da conta</button>
+      </div>
     </div>
     <div class="opt">
       <div><div class="ot">Versão do app</div><div class="od" id="verInfo">verificando…</div></div>
@@ -2680,14 +2720,21 @@ function entrar(identificador, senha){
       var cod = r.dados && (r.dados.error_code || r.dados.error);
       throw new Error(cod === "invalid_credentials" ? "credenciais" : "servidor");
     }
+    var u = r.dados.user || {};
     guardaSessao({
       token:  r.dados.access_token,
       renova: r.dados.refresh_token,
       expira: Date.now() + (r.dados.expires_in || 3600) * 1000,
-      uid:    r.dados.user && r.dados.user.id,
-      email:  r.dados.user && r.dados.user.email,
-      nome:   ""
+      uid:    u.id,
+      email:  u.email,
+      nome:   "",
+      /* quem criou a conta marcou que esta senha é de passagem */
+      trocar: !!(u.user_metadata && u.user_metadata.trocar_senha)
     });
+    /* Só na memória, só até a troca acontecer: é o que permite recusar
+       "trocar" a senha pela mesma que a recepção anotou no papel. Nunca é
+       gravada em lugar nenhum. */
+    senhaAntiga = senha;
     return buscaPerfil();
   });
 }
@@ -2898,6 +2945,90 @@ function renovaSessao(){
   }).catch(function(){ return false; });
 }
 
+/* ============================================================
+   A senha provisória deixa de ser definitiva
+
+   A conta do aluno nasce na recepção, com uma senha que a recepção anota
+   num papel. Enquanto ele não trocar, existe uma pessoa a mais no mundo
+   que sabe entrar na conta dele. Por isso a troca não é sugestão: é a
+   primeira tela depois de entrar.
+
+   O aviso vem do próprio login (`user_metadata.trocar_senha`), então não
+   houve tabela nova nem regra nova. A contrapartida é que a pessoa pode,
+   em tese, apagar o aviso sozinha pela API sem trocar a senha — só ela
+   perde com isso, e nada no sistema depende deste campo para proteger
+   dado nenhum. Ele é um lembrete, não uma tranca.
+   ============================================================ */
+var senhaAntiga = null;      /* só memória, só até a troca */
+var trocaOpcional = false;   /* aberta pelos Ajustes, não pela primeira vez */
+
+function aplicaTelas(){
+  var r = document.documentElement.classList;
+  r.toggle("sem-conta", !sessao);
+  r.toggle("trocar-senha", !!(sessao && sessao.trocar));
+}
+
+function abreTrocaSenha(){
+  if(!sessao) return;
+  trocaOpcional = true;
+  sessao.trocar = true; guardaSessao(sessao);
+  sheet.classList.remove("open");
+  document.getElementById("tsTitulo").innerHTML = 'Trocar a senha<span>.</span>';
+  document.getElementById("tsSub").textContent =
+    "Escolha uma senha nova para a sua conta. Você continua conectado neste aparelho.";
+  document.getElementById("tsCancelar").style.display = "";
+  aplicaTelas();
+}
+
+function fechaTrocaSenha(){
+  trocaOpcional = false;
+  if(sessao){ sessao.trocar = false; guardaSessao(sessao); }
+  aplicaTelas();
+}
+
+document.getElementById("trocaForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var nova   = document.getElementById("tsNova").value,
+      repete = document.getElementById("tsRepete").value,
+      btn    = document.getElementById("tsGo"),
+      err    = document.getElementById("tsErro");
+
+  function falha(msg){ err.textContent = msg; err.classList.add("on"); }
+  err.classList.remove("on");
+
+  if(nova.length < 8)            return falha("A senha precisa de pelo menos 8 caracteres.");
+  if(nova !== repete)            return falha("As duas senhas não são iguais.");
+  if(senhaAntiga && nova === senhaAntiga)
+    return falha("Essa é a senha provisória, que a recepção também conhece. Escolha outra.");
+
+  btn.disabled = true; btn.textContent = "Salvando…";
+  supaFetch("/auth/v1/user", { metodo:"PUT", comSessao:true,
+                               corpo:{ password:nova, data:{ trocar_senha:false } } })
+    .then(function(r){
+      if(!r.ok){
+        var cod = (r.dados && (r.dados.error_code || r.dados.msg || r.dados.error)) || "";
+        throw new Error(/same/i.test(cod) ? "igual" :
+                        /weak|least|short/i.test(cod) ? "fraca" : "servidor");
+      }
+      senhaAntiga = null;
+      document.getElementById("tsNova").value = "";
+      document.getElementById("tsRepete").value = "";
+      fechaTrocaSenha();
+      renderConta(); renderHead(); renderTabs(); renderView();
+    })
+    .catch(function(erro){
+      var m = erro && erro.message;
+      falha(m === "igual" ? "Essa já é a sua senha atual. Escolha outra." :
+            m === "fraca" ? "O servidor achou essa senha fraca demais. Tente uma maior." :
+            "Não consegui falar com o servidor. Confira a internet e tente de novo.");
+    })
+    .then(function(){ btn.disabled = false; btn.textContent = "Salvar senha"; });
+});
+
+document.getElementById("tsCancelar").addEventListener("click", function(){
+  if(trocaOpcional) fechaTrocaSenha();
+});
+
 function exigeLogin(){
   limpaSessao();
   clearTimeout(syncT); syncT = null;
@@ -2906,7 +3037,8 @@ function exigeLogin(){
      treino de alguém a quem saiu depois. O que ele MARCOU continua no
      aparelho — apagar registro de treino sem pedir seria pior. */
   guardaFicha(null);
-  document.documentElement.classList.add("sem-conta");
+  senhaAntiga = null; trocaOpcional = false;
+  aplicaTelas();
   renderConta();
   renderHead(); renderTabs(); renderView();
 }
@@ -2925,7 +3057,8 @@ function renderConta(){
   var elNome = document.getElementById("contaNome"),
       elMail = document.getElementById("contaEmail"),
       elAv   = document.getElementById("contaAv"),
-      elSair = document.getElementById("btnSair");
+      elSair = document.getElementById("btnSair"),
+      elSenha = document.getElementById("btnSenha");
   if(!elNome) return;
   if(sessao){
     var pn = primeiroNome(sessao.nome) || (sessao.email || "").split("@")[0];
@@ -2933,11 +3066,13 @@ function renderConta(){
     elMail.textContent = sessao.email || "";
     elAv.textContent   = (pn || "?").charAt(0).toUpperCase();
     elSair.style.display = "";
+    elSenha.style.display = "";
   } else {
     elNome.textContent = "Ninguém conectado";
     elMail.textContent = "";
     elAv.textContent   = "?";
     elSair.style.display = "none";
+    elSenha.style.display = "none";
   }
 }
 
@@ -2953,7 +3088,7 @@ document.getElementById("loginForm").addEventListener("submit", function(e){
          document.getElementById("loginSenha").value)
     .then(function(){
       document.getElementById("loginSenha").value = "";
-      document.documentElement.classList.remove("sem-conta");
+      aplicaTelas();       /* pode cair na troca de senha em vez do app */
       renderConta(); renderCapa(); renderHead(); renderTabs(); renderView();
     })
     .catch(function(erro){
@@ -2968,6 +3103,7 @@ document.getElementById("loginForm").addEventListener("submit", function(e){
 });
 
 document.getElementById("btnSair").addEventListener("click", sair);
+document.getElementById("btnSenha").addEventListener("click", abreTrocaSenha);
 
 /* ============================================================
    Gestão — academias, pessoas e papéis
