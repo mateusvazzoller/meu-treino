@@ -89,7 +89,17 @@ Deno.serve(async (req) => {
   const vinculos = consulta.ok ? await consulta.json() : [];
   const meusPapeis: string[] = vinculos[0]?.papeis ?? [];
 
-  const podeCadastrar = meusPapeis.some((p) =>
+  // O dono do sistema precisa entrar aqui: academia recém-criada não tem
+  // ninguém dentro, então sem isto ela nasceria sem ninguém capaz de
+  // cadastrar o primeiro admin. A consulta vai com o crachá dele, e a
+  // coluna `suporte` só se muda pelo painel — não dá para forjar.
+  const souSuporte = await fetch(
+    `${URL_SUPA}/rest/v1/pessoas?select=suporte&id=eq.${encodeURIComponent(usuario.id)}`,
+    { headers: comMeuCracha },
+  ).then((r) => r.ok ? r.json() : []).then((l) => l[0]?.suporte === true)
+   .catch(() => false);
+
+  const podeCadastrar = souSuporte || meusPapeis.some((p) =>
     ["recepcao", "gestor", "admin"].includes(p)
   );
   if (!podeCadastrar) return resposta({ erro: "sem_permissao" }, 403);
@@ -97,7 +107,7 @@ Deno.serve(async (req) => {
   // Dar papel que não seja "aluno" é do admin. Isto é conferido aqui E na
   // regra do banco, porque a criação do vínculo abaixo vai com o crachá
   // dele — a checagem daqui só serve para devolver um erro mais claro.
-  const ehAdmin = meusPapeis.includes("admin");
+  const ehAdmin = souSuporte || meusPapeis.includes("admin");
   if (!ehAdmin && papeis.some((p) => p !== "aluno")) {
     return resposta({ erro: "so_admin_da_papel" }, 403);
   }

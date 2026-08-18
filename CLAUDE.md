@@ -104,7 +104,7 @@ deixa nulo. A correção é preencher todas as colunas de texto com `''`. Usuár
 criado pelo painel não tem esse problema — só `phone` fica nulo, e isso é
 normal.
 
-## A recepcao cadastra — feito no servidor, falta a tela
+## A recepcao cadastra — feito
 
 Cadastro publico esta LIGADO no Supabase mas exige confirmacao por e-mail, e
 nao ha e-mail: toda tentativa devolve `over_email_send_rate_limit`. Por isso a
@@ -120,9 +120,15 @@ arquivo — a recepcao nao conseguiria matricular ninguem. Corrigido: recepcao e
 gestor vinculam, mas **so como `aluno`**; qualquer outro papel continua sendo
 do admin.
 
-Falta a tela: criar academia (dono do sistema), listar pessoas, cadastrar e
-dar/tirar papel. E falta troca de senha no primeiro acesso — hoje a
-provisoria vira definitiva.
+A aba **Gestao** cobre isso: criar academia (dono do sistema), escolher a
+academia, listar as pessoas, cadastrar e ligar/desligar papel tocando nos
+chips. Ela so aparece para quem tem o que gerir — mas esconder e arrumacao,
+nao protecao: testado forcando a API como aluna, ela enxerga so a si mesma e
+criar academia devolve 403.
+
+**Ainda falta troca de senha no primeiro acesso.** Hoje a provisoria vira
+definitiva e a recepcao fica sabendo a senha do aluno. Resolver antes de
+entrar academia de verdade.
 
 ## O trabalho que ainda não foi feito
 

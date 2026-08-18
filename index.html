@@ -476,6 +476,41 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
   .login .erro.on{display:block}
   .login .go[disabled]{opacity:.55}
   .conta-linha{display:flex;align-items:center;gap:11px;min-width:0}
+  /* ---------- gestão ---------- */
+  .gcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+         padding:14px;margin-top:10px;width:100%;text-align:left;display:block}
+  .gcard.sel{border-color:var(--accent)}
+  .gcard .gh{display:flex;align-items:center;gap:11px;min-width:0}
+  .gcard .gn{flex:1;min-width:0}
+  .gcard .gn .t{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;
+                white-space:nowrap;color:var(--ink)}
+  .gcard .gn .s{color:var(--ink-2);font-size:12.5px;margin-top:2px;overflow:hidden;
+                text-overflow:ellipsis;white-space:nowrap}
+  .papeis{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .papel{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;
+         border:1px solid var(--line);border-radius:5px;padding:6px 9px;color:var(--ink-3);
+         background:transparent}
+  .papel.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .gvazio{color:var(--ink-2);font-size:14px;line-height:1.55;padding:16px 2px}
+  .senha-nova{margin-top:12px;border:1.5px solid var(--good);background:var(--good-soft);
+              border-radius:var(--radius);padding:14px}
+  .senha-nova .sl{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+                  font-weight:700;color:var(--good)}
+  .senha-nova .sv{font-family:var(--f-mono);font-size:26px;font-weight:700;color:var(--ink);
+                  margin-top:6px;letter-spacing:.04em;user-select:all}
+  .senha-nova .sp{color:var(--ink-2);font-size:12.5px;margin-top:8px;line-height:1.45}
+  .fcampo{margin-top:12px}
+  .fcampo label{display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+                font-weight:700;color:var(--ink-3);margin-bottom:6px}
+  .fcampo input{width:100%;height:48px;border:1px solid var(--line);border-radius:10px;
+                background:var(--ground);color:var(--ink);font-size:16px;padding:0 13px;
+                font-family:var(--f-body);-webkit-appearance:none}
+  .fcampo input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .gerro{margin-top:12px;border:1px solid var(--warn);color:var(--warn);border-radius:9px;
+         padding:10px 13px;font-size:13.5px;line-height:1.45}
+  .gbotao{width:100%;height:52px;margin-top:16px;border-radius:12px;background:var(--accent);
+          color:var(--accent-ink);font-family:var(--f-display);font-size:17px;
+          letter-spacing:.06em;text-transform:uppercase;font-weight:700}
   /* `.mini` (9,5 px, parecendo link) escondia o "sair" a ponto de o usuário
      jurar que ele não existia. Sair da conta é ação de peso: merece contorno,
      área de toque e a cor de atenção. */
@@ -630,6 +665,7 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
   <button id="tabTreino" aria-pressed="true">Treino</button>
   <button id="tabSim" aria-pressed="false">Simulado</button>
   <button id="tabHist" aria-pressed="false">Histórico</button>
+  <button id="tabGestao" aria-pressed="false" style="display:none">Gestão</button>
 </nav>
 
 <div class="dock" id="dock">
@@ -1425,6 +1461,7 @@ function renderHead(){
    Render — sessão de treino
    ============================================================ */
 function renderView(){
+  if(S.tab==="gestao"){ renderGestao(); return; }
   if(S.tab==="hist"){ renderHist(); return; }
   if(S.tab==="sim"){ renderSim(); return; }
   var d = S.day, w = S.week, sx = PLAN[d];
@@ -1951,11 +1988,17 @@ function renderHist(){
    ============================================================ */
 var tabT = document.getElementById("tabTreino"),
     tabS = document.getElementById("tabSim"),
-    tabH = document.getElementById("tabHist");
+    tabH = document.getElementById("tabHist"),
+    tabG = document.getElementById("tabGestao");
 function renderTabs(){
   tabT.setAttribute("aria-pressed", S.tab==="treino");
   tabS.setAttribute("aria-pressed", S.tab==="sim");
   tabH.setAttribute("aria-pressed", S.tab==="hist");
+  tabG.setAttribute("aria-pressed", S.tab==="gestao");
+  /* esconder a aba não é proteção, é arrumação: quem não pode já é
+     barrado pelo banco, mesmo que force a aba na marra */
+  tabG.style.display = podeGerir() ? "" : "none";
+  if(S.tab === "gestao" && !podeGerir()){ S.tab = "treino"; save(); }
 }
 function vaiPara(aba){
   S.tab = aba; save(); renderTabs(); renderView(); window.scrollTo(0,0);
@@ -1963,6 +2006,7 @@ function vaiPara(aba){
 tabT.addEventListener("click", function(){ vaiPara("treino"); });
 tabS.addEventListener("click", function(){ vaiPara("sim"); });
 tabH.addEventListener("click", function(){ vaiPara("hist"); });
+tabG.addEventListener("click", function(){ vaiPara("gestao"); recarregaGestao(); });
 
 /* ---------- esforço da sessão (pergunta ao concluir) ---------- */
 var rsheet = document.getElementById("rsheet");
@@ -2549,7 +2593,7 @@ function entrar(identificador, senha){
 /* O nome vem da tabela de pessoas, não do login: é lá que ele é editado. */
 function buscaPerfil(jaTentou){
   if(!sessao || !sessao.uid) return Promise.resolve(null);
-  return supaFetch("/rest/v1/pessoas?select=nome,email&id=eq." + sessao.uid, { comSessao:true })
+  return supaFetch("/rest/v1/pessoas?select=nome,email,suporte&id=eq." + sessao.uid, { comSessao:true })
     .then(function(r){
       /* 401 é o servidor dizendo que o crachá não vale mais. Tenta renovar
          uma vez; se ele recusar de novo, é hora de entrar outra vez. Sem
@@ -2561,10 +2605,16 @@ function buscaPerfil(jaTentou){
         });
       }
       if(r.ok && r.dados && r.dados[0]){
-        sessao.nome  = r.dados[0].nome || "";
-        sessao.email = r.dados[0].email || sessao.email;
+        sessao.nome    = r.dados[0].nome || "";
+        sessao.email   = r.dados[0].email || sessao.email;
+        sessao.suporte = r.dados[0].suporte === true;
         guardaSessao(sessao);
         renderConta();
+        /* as academias decidem se a aba Gestão aparece */
+        carregaAcademias().then(function(){
+          renderTabs();
+          if(S.tab === "gestao") renderView();
+        }).catch(function(){});
       }
       return sessao;
     })
@@ -2656,12 +2706,282 @@ document.getElementById("loginForm").addEventListener("submit", function(e){
 document.getElementById("btnSair").addEventListener("click", sair);
 
 /* ============================================================
+   Gestão — academias, pessoas e papéis
+
+   Nenhuma checagem de permissão mora nesta tela. Se a pessoa não puder, o
+   banco devolve vazio ou recusa; aqui só se decide o que MOSTRAR, e
+   mostrar a mais nunca vira poder a mais.
+   ============================================================ */
+var G = { academias: [], atual: null, pessoas: [], carregando: false, erro: "",
+          senhaNova: null, form: false };
+var ROTULO_PAPEL = { aluno:"Aluno", professor:"Professor", recepcao:"Recepção",
+                     gestor:"Gestor", admin:"Admin" };
+var ORDEM_PAPEL = ["aluno","professor","recepcao","gestor","admin"];
+
+function souSuporte(){ return !!(sessao && sessao.suporte); }
+function papeisNa(id){
+  var a = G.academias.filter(function(x){ return x.id === id; })[0];
+  return (a && a.papeis) || [];
+}
+function souAdminNa(id){ return souSuporte() || papeisNa(id).indexOf("admin") >= 0; }
+function podeCadastrarNa(id){
+  if(souSuporte()) return true;
+  return papeisNa(id).some(function(p){
+    return ["recepcao","gestor","admin"].indexOf(p) >= 0;
+  });
+}
+function podeGerir(){
+  return souSuporte() || G.academias.some(function(a){
+    return (a.papeis||[]).some(function(p){
+      return ["professor","recepcao","gestor","admin"].indexOf(p) >= 0;
+    });
+  });
+}
+
+/* Academias que eu enxergo, com os meus papéis em cada uma. Quem é dono do
+   sistema enxerga todas — quem decide isso é a regra do banco, não daqui. */
+function carregaAcademias(){
+  if(!sessao) return Promise.resolve([]);
+  return Promise.all([
+    supaFetch("/rest/v1/vinculos?select=academia_id,papeis&ativo=is.true&pessoa_id=eq."
+              + sessao.uid, { comSessao:true }),
+    supaFetch("/rest/v1/academias?select=id,nome,ativa&order=nome", { comSessao:true })
+  ]).then(function(r){
+    var vin = (r[0].ok && r[0].dados) || [];
+    var acs = (r[1].ok && r[1].dados) || [];
+    var mapa = {};
+    vin.forEach(function(v){ mapa[v.academia_id] = v.papeis || []; });
+    G.academias = acs.map(function(a){
+      return { id:a.id, nome:a.nome, ativa:a.ativa, papeis: mapa[a.id] || [] };
+    });
+    if(!G.atual || !G.academias.some(function(a){ return a.id === G.atual; })){
+      G.atual = G.academias.length ? G.academias[0].id : null;
+    }
+    return G.academias;
+  });
+}
+
+function carregaPessoas(id){
+  if(!id){ G.pessoas = []; return Promise.resolve([]); }
+  return supaFetch("/rest/v1/vinculos?select=id,papeis,ativo,pessoa_id," +
+                   "pessoas(id,nome,email,telefone)&academia_id=eq." + id +
+                   "&order=criado_em", { comSessao:true })
+    .then(function(r){ G.pessoas = (r.ok && r.dados) || []; return G.pessoas; });
+}
+
+function recarregaGestao(){
+  G.carregando = true; if(S.tab === "gestao") renderView();
+  return carregaAcademias()
+    .then(function(){ return carregaPessoas(G.atual); })
+    .then(function(){ G.carregando = false; G.erro = ""; renderTabs();
+                      if(S.tab === "gestao") renderView(); })
+    .catch(function(){ G.carregando = false;
+                       G.erro = "Não consegui falar com o servidor. Confira a internet.";
+                       if(S.tab === "gestao") renderView(); });
+}
+
+function criaAcademia(){
+  var nome = prompt("Nome da academia:");
+  if(!nome || !nome.trim()) return;
+  supaFetch("/rest/v1/academias", { metodo:"POST", comSessao:true,
+                                    corpo:{ nome: nome.trim() } })
+    .then(function(r){
+      if(!r.ok) throw new Error("recusado");
+      G.erro = "";
+      return recarregaGestao();
+    })
+    .catch(function(){
+      G.erro = "Não consegui criar a academia. Só o dono do sistema pode.";
+      renderView();
+    });
+}
+
+/* Liga ou desliga um papel. A recusa vem do banco: quem não é admin
+   simplesmente não altera linha nenhuma, e o gatilho barra tirar o
+   último admin ou mexer no próprio papel. */
+function trocaPapel(vinculo, papel){
+  var atuais = (vinculo.papeis || []).slice();
+  var i = atuais.indexOf(papel);
+  if(i >= 0) atuais.splice(i, 1); else atuais.push(papel);
+  if(!atuais.length){ alert("A pessoa precisa de pelo menos um papel."); return; }
+
+  supaFetch("/rest/v1/vinculos?id=eq." + vinculo.id, {
+    metodo:"PATCH", comSessao:true, corpo:{ papeis: atuais }
+  }).then(function(r){
+    if(!r.ok) throw new Error("recusado");
+    return carregaPessoas(G.atual).then(carregaAcademias);
+  }).then(function(){ G.erro = ""; renderTabs(); renderView(); })
+    .catch(function(){
+      G.erro = "O banco recusou. Ninguém muda o próprio papel, e a academia " +
+               "não pode ficar sem admin.";
+      renderView();
+    });
+}
+
+function cadastraPessoa(dados, botao){
+  botao.disabled = true; botao.textContent = "Cadastrando…";
+  G.erro = ""; G.senhaNova = null;
+  supaFetch("/functions/v1/criar-pessoa", { metodo:"POST", comSessao:true, corpo:dados })
+    .then(function(r){
+      if(!r.ok || !r.dados || !r.dados.ok){
+        var e = (r.dados && r.dados.erro) || "";
+        throw new Error(
+          e === "email_ja_usado"    ? "Esse e-mail já tem conta no sistema." :
+          e === "so_admin_da_papel" ? "Só o admin pode dar papel diferente de aluno." :
+          e === "sem_permissao"     ? "Você não pode cadastrar nesta academia." :
+          "Não consegui cadastrar. Confira o e-mail e tente de novo."
+        );
+      }
+      G.senhaNova = { nome:r.dados.nome, senha:r.dados.senha_provisoria };
+      G.form = false;
+      return recarregaGestao();
+    })
+    .catch(function(err){ G.erro = err.message; renderView(); });
+}
+
+function renderGestao(){
+  viewEl.innerHTML = "";
+
+  if(G.carregando && !G.academias.length){
+    viewEl.appendChild(el('<div class="gvazio">Carregando…</div>'));
+    return;
+  }
+  if(G.erro) viewEl.appendChild(el('<div class="gerro">' + esc(G.erro) + '</div>'));
+
+  viewEl.appendChild(el('<div class="sec">Academias</div>'));
+
+  if(!G.academias.length){
+    viewEl.appendChild(el('<div class="gvazio">' +
+      (souSuporte()
+        ? "Nenhuma academia ainda. Crie a primeira e cadastre o admin dela."
+        : "Você ainda não está em nenhuma academia. Peça para a recepção te cadastrar.") +
+      '</div>'));
+  }
+
+  G.academias.forEach(function(a){
+    var meus = (a.papeis || []).map(function(x){ return ROTULO_PAPEL[x] || x; }).join(" · ");
+    var c = el('<button class="gcard' + (a.id === G.atual ? " sel" : "") + '">' +
+      '<div class="gh"><div class="gn">' +
+        '<div class="t">' + esc(a.nome) + '</div>' +
+        '<div class="s">' + (meus ? esc(meus) : "você não tem papel aqui") + '</div>' +
+      '</div></div></button>');
+    c.addEventListener("click", function(){
+      G.atual = a.id; G.form = false; G.senhaNova = null;
+      carregaPessoas(a.id).then(renderView);
+    });
+    viewEl.appendChild(c);
+  });
+
+  if(souSuporte()){
+    var nova = el('<button class="mini" style="margin-top:12px">+ Nova academia</button>');
+    nova.addEventListener("click", criaAcademia);
+    viewEl.appendChild(nova);
+  }
+
+  if(!G.atual) return;
+
+  var acad = G.academias.filter(function(a){ return a.id === G.atual; })[0] || {};
+  viewEl.appendChild(el('<div class="sec" style="margin-top:22px">Pessoas · ' +
+                        esc(acad.nome || "") + '</div>'));
+
+  if(G.senhaNova){
+    viewEl.appendChild(el('<div class="senha-nova">' +
+      '<div class="sl">Senha de ' + esc(primeiroNome(G.senhaNova.nome)) + '</div>' +
+      '<div class="sv">' + esc(G.senhaNova.senha) + '</div>' +
+      '<div class="sp">Anote e entregue agora. Ela não volta a aparecer, e ainda ' +
+      'não há como reenviar — se perder, só cadastrando de novo.</div></div>'));
+  }
+
+  if(!G.pessoas.length){
+    viewEl.appendChild(el('<div class="gvazio">Ninguém cadastrado aqui ainda.</div>'));
+  }
+
+  var euAdmin = souAdminNa(G.atual);
+  G.pessoas.forEach(function(v){
+    var pes = v.pessoas || {};
+    var card = el('<div class="gcard">' +
+      '<div class="gh"><div class="av">' +
+        esc((primeiroNome(pes.nome) || "?").charAt(0).toUpperCase()) + '</div>' +
+      '<div class="gn">' +
+        '<div class="t">' + esc(pes.nome || "sem nome") + '</div>' +
+        '<div class="s">' + esc(pes.email || "") + '</div>' +
+      '</div></div><div class="papeis"></div></div>');
+    var box = card.querySelector(".papeis");
+    ORDEM_PAPEL.forEach(function(pp){
+      var ligado = (v.papeis || []).indexOf(pp) >= 0;
+      if(!euAdmin && !ligado) return;      /* quem não é admin vê, não mexe */
+      var b = el('<button class="papel' + (ligado ? " on" : "") + '">' +
+                 ROTULO_PAPEL[pp] + '</button>');
+      if(euAdmin) b.addEventListener("click", function(){ trocaPapel(v, pp); });
+      else b.disabled = true;
+      box.appendChild(b);
+    });
+    viewEl.appendChild(card);
+  });
+
+  if(!podeCadastrarNa(G.atual)) return;
+
+  if(!G.form){
+    var add = el('<button class="gbotao">+ Cadastrar pessoa</button>');
+    add.addEventListener("click", function(){
+      G.form = true; G.senhaNova = null; G.erro = ""; renderView();
+    });
+    viewEl.appendChild(add);
+    return;
+  }
+
+  var f = el('<div class="gcard" style="margin-top:16px">' +
+    '<div class="fcampo"><label for="gNome">Nome completo</label>' +
+    '<input id="gNome" type="text" autocomplete="off"></div>' +
+    '<div class="fcampo"><label for="gEmail">E-mail</label>' +
+    '<input id="gEmail" type="email" autocomplete="off" autocapitalize="none" ' +
+    'autocorrect="off" spellcheck="false"></div>' +
+    '<div class="fcampo"><label for="gTel">Telefone (opcional)</label>' +
+    '<input id="gTel" type="tel" autocomplete="off"></div>' +
+    '<div class="fcampo"><label>Papéis</label><div class="papeis" id="gPapeis"></div></div>' +
+    '<div style="margin-top:14px;display:flex;gap:9px">' +
+      '<button id="gCancelar" style="flex:1">Cancelar</button>' +
+      '<button id="gSalvar" class="pri" style="flex:2">Cadastrar</button>' +
+    '</div></div>');
+
+  var escolhidos = ["aluno"];
+  var cx = f.querySelector("#gPapeis");
+  ORDEM_PAPEL.forEach(function(pp){
+    if(!euAdmin && pp !== "aluno") return;   /* a regra também está no servidor */
+    var b = el('<button class="papel' + (pp === "aluno" ? " on" : "") + '">' +
+               ROTULO_PAPEL[pp] + '</button>');
+    b.addEventListener("click", function(){
+      var i = escolhidos.indexOf(pp);
+      if(i >= 0){
+        if(escolhidos.length === 1) return;
+        escolhidos.splice(i, 1); b.classList.remove("on");
+      } else { escolhidos.push(pp); b.classList.add("on"); }
+    });
+    cx.appendChild(b);
+  });
+
+  f.querySelector("#gCancelar").addEventListener("click", function(){
+    G.form = false; G.erro = ""; renderView();
+  });
+  f.querySelector("#gSalvar").addEventListener("click", function(){
+    var nome  = f.querySelector("#gNome").value.trim();
+    var email = f.querySelector("#gEmail").value.trim();
+    var tel   = f.querySelector("#gTel").value.trim();
+    if(nome.length < 2){ G.erro = "Falta o nome."; renderView(); return; }
+    if(email.indexOf("@") < 0){ G.erro = "Falta um e-mail válido."; renderView(); return; }
+    cadastraPessoa({ academia_id:G.atual, nome:nome, email:email,
+                     telefone:tel, papeis:escolhidos }, this);
+  });
+  viewEl.appendChild(f);
+}
+
+/* ============================================================
    Início
    ============================================================ */
 load();
 if(S.week<1||S.week>4) S.week=1;
 if(S.day<0||S.day>=PLAN.length) S.day=0;
-if(["treino","sim","hist"].indexOf(S.tab)<0) S.tab="treino";
+if(["treino","sim","hist","gestao"].indexOf(S.tab)<0) S.tab="treino";
 tafInit();
 applyTheme(); syncCfgUI(); renderCapa();
 renderHead(); renderTabs(); renderView(); applyWake();
