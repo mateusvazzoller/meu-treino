@@ -170,7 +170,17 @@ vê — não é erro, é o normal dele.
 vez por segundo**, no relógio do topo. As três (mais `totalSets` e `doneSets`)
 agora têm guarda. Qualquer função nova que indexe `PLAN` precisa da mesma.
 
-`PROVAS` continua com as cinco provas do TAF da PCPR, ainda como exemplo.
+### Simulado desligado, não apagado
+
+`var MOSTRA_SIMULADO = false;` esconde a aba e devolve quem estiver nela para
+o Treino. O código, `PROVAS` e `S.taf` continuam inteiros: numa academia comum
+as cinco provas do TAF da PCPR não fazem sentido, mas num cliente que prepare
+para concurso fazem. Voltar é trocar para `true`, e nada mais.
+
+Sobrou um vizinho do mesmo mundo: o ajuste **"Dia da prova"**, que liga a
+contagem regressiva na capa (`S.cfg.prova`). Continua ligado porque não é o
+simulado — mas numa academia o rótulo soa estranho e vale renomear ou
+esconder junto quando alguém decidir.
 
 ## Armadilha herdada: os dois apps dividem o mesmo endereço
 

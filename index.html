@@ -816,6 +816,12 @@ var pair = function(a,b){ return [a,a,b,b]; };
 
 var PLAN = [];
 
+/* O simulado veio do Meu TAF e não cabe numa academia comum: as cinco
+   provas são as do TAF da PCPR. Fica desligado, mas inteiro — a aba some
+   e a tela não é alcançável. Para trazer de volta, troque para true; nada
+   mais precisa mudar. */
+var MOSTRA_SIMULADO = false;
+
 /* Busca de vídeo por exercício. Não há link fixo: o ícone abre a busca
    pronta no YouTube, e o link que você salvar passa a ter prioridade.
    Corrida, sprint e bike ficam de fora — não precisam de tutorial. */
@@ -2012,6 +2018,8 @@ function renderTabs(){
   tabS.setAttribute("aria-pressed", S.tab==="sim");
   tabH.setAttribute("aria-pressed", S.tab==="hist");
   tabG.setAttribute("aria-pressed", S.tab==="gestao");
+  tabS.style.display = MOSTRA_SIMULADO ? "" : "none";
+  if(S.tab === "sim" && !MOSTRA_SIMULADO){ S.tab = "treino"; save(); }
   /* esconder a aba não é proteção, é arrumação: quem não pode já é
      barrado pelo banco, mesmo que force a aba na marra */
   tabG.style.display = podeGerir() ? "" : "none";
