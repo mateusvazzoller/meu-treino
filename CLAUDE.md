@@ -12,12 +12,22 @@ O app não prescreve treino: ele mostra o que um profissional prescreveu.
 **Não invente, não "corrija" e não complete exercícios, cargas ou progressões.**
 Dúvida vira pergunta ao usuário, não suposição.
 
-## O banco — decidido, ainda não instalado
+## O banco — instalado e testado
 
-`banco/01-esquema.sql` cria as nove tabelas com as regras de permissão;
-`banco/02-teste.sql` prova que elas seguram. Nenhum dos dois rodou ainda: o
-projeto do Supabase depende de uma conta que só o usuário cria. Ver
-`banco/LEIA-ME.md` para o passo a passo.
+Projeto Supabase `meu-treino`, ref `ivvzsneumirucwilpbrj`, São Paulo, plano
+gratuito. API em `https://ivvzsneumirucwilpbrj.supabase.co`. O esquema foi
+aplicado em quatro migrações e o teste das regras passou nas 16 checagens.
+Ver `banco/LEIA-ME.md`.
+
+`banco/01-esquema.sql` é a **fonte da verdade**: ao mudar o banco, mude o
+arquivo junto, senão refazer o projeto do zero traz de volta algo diferente
+do que está no ar.
+
+Existe conector MCP do Supabase ligado na conta do usuário, então dá para
+aplicar migração e consultar direto daqui. Duas coisas que ele **não** faz e
+continuam sendo do usuário: criar usuários (tem campo de senha) e marcar o
+dono do sistema (`update pessoas set suporte = true`, de propósito impossível
+pela API).
 
 Decisões que já estão dentro do esquema e não devem ser desfeitas sem
 conversa:
@@ -36,6 +46,16 @@ conversa:
   permita. Errou, lança estorno.
 - **As regras moram no banco.** Ao criar tabela nova, ligue
   `row level security` nela — sem isso ela nasce aberta a qualquer um.
+
+Duas consequências que só apareceram rodando, e que valem para sempre:
+**academia com lançamento não pode ser apagada** (a trava vale também na
+cascata) e **pessoa com lançamento não pode ser apagada** (a chave estrangeira
+segura). Na LGPD isso vira: pedido de exclusão se resolve anonimizando o
+cadastro e preservando o lançamento, nunca apagando.
+
+Toda função nova precisa de `set search_path` — sem isso o verificador do
+Supabase (`get_advisors`) acusa, com razão. Rode-o depois de cada mudança de
+estrutura.
 
 Ao mexer nas regras, lembre que uma tentativa barrada **nem sempre dá
 erro**: em `INSERT` dá, em `UPDATE`/`DELETE` ela apenas não mexe em linha

@@ -1,73 +1,77 @@
 # O banco do Meu Treino
 
-Dois arquivos, na ordem. O primeiro cria tudo; o segundo confere se as
-regras estão segurando.
+**Já está instalado e testado.** Este arquivo explica o que existe lá, como
+refazer do zero se precisar, e as consequências que só apareceram depois de
+rodar de verdade.
 
-## Antes de tudo
+| | |
+|---|---|
+| Projeto | `meu-treino` (ref `ivvzsneumirucwilpbrj`) |
+| Região | São Paulo (`sa-east-1`) |
+| URL da API | `https://ivvzsneumirucwilpbrj.supabase.co` |
+| Plano | gratuito |
 
-Você precisa criar a conta e o projeto no Supabase — é a única parte que
-ninguém faz por você. É gratuito e não pede cartão.
+## Os arquivos
 
-1. Entre em <https://supabase.com> e crie a conta.
-2. **New project.** Nome: `meu-treino`. Região: **South America (São Paulo)** —
-   quanto mais perto, mais rápido o app responde.
-3. Guarde a senha do banco que ele mostrar. Ela aparece **uma vez só**.
-4. Espere uns dois minutos até o projeto ficar pronto.
+| Arquivo | Para quê |
+|---|---|
+| `01-esquema.sql` | Tudo: nove tabelas, funções, travas e regras. Refaz o banco do zero |
+| `02-teste.sql` | Versão do teste para colar no SQL Editor à mão |
 
-## Passo 1 — criar as tabelas
+O `01-esquema.sql` é a fonte da verdade. **Ao mudar o banco, mude o arquivo
+junto** — senão refazer o projeto depois traz de volta um banco diferente do
+que está no ar.
 
-No painel, vá em **SQL Editor › New query**, cole o conteúdo de
-[`01-esquema.sql`](01-esquema.sql) inteiro e clique em **Run**.
+## O que já foi feito
 
-Deve terminar com `Success. No rows returned`. Se der erro, ele para no
-primeiro problema e não deixa nada pela metade — me mande a mensagem.
+1. Esquema instalado em três migrações (`esquema_inicial_meu_treino`,
+   `funcoes_e_travas`, `regras_de_permissao`).
+2. Verificador de segurança do Supabase rodado. Ele apontou oito funções sem
+   `search_path` fixo — corrigido na migração `fixa_search_path_das_funcoes` e
+   no arquivo.
+3. Teste das regras rodado com quatro pessoas e duas academias de mentira:
+   **16 checagens, 16 OK**. Os dados de teste foram apagados no fim; as tabelas
+   estão todas zeradas.
 
-Depois disso, em **Table Editor**, você deve ver as nove tabelas:
-`academias`, `pessoas`, `vinculos`, `fichas`, `atribuicoes`, `registros`,
-`planos`, `matriculas`, `lancamentos`.
+## Falta uma coisa para o sistema poder ser usado
 
-## Passo 2 — nomear o dono do sistema
-
-Nenhuma academia pode ser criada enquanto não existir um dono do sistema, e
-essa marca é de propósito impossível de dar pela API — só à mão, aqui.
-
-1. **Authentication › Users › Add user.** Use o seu e-mail de verdade e
-   marque **Auto Confirm User**.
-2. Volte ao **SQL Editor** e rode, trocando pelo seu e-mail:
+Nenhuma academia pode ser criada enquanto não existir um **dono do sistema**, e
+essa marca não se dá pela API de propósito. Depois de criar a sua conta:
 
 ```sql
 update pessoas set suporte = true where email = 'voce@exemplo.com';
 ```
 
-Se isso responder `UPDATE 0`, a pessoa não foi criada — confira o e-mail.
+Tem que responder `UPDATE 1`.
 
-## Passo 3 — conferir se as regras seguram
+## Consequências que só apareceram rodando
 
-Não pule este passo. Ele é o que separa "as tabelas existem" de "uma
-academia não enxerga a outra".
+**Uma academia com pagamento anotado não pode mais ser apagada.** A trava que
+impede apagar lançamento vale também quando o apagamento vem em cascata pela
+academia. Isso é coerente com "dinheiro só cresce", mas significa que remover
+uma academia cliente exige desligar a trava de propósito — foi o que o teste
+precisou fazer para limpar depois de si.
 
-1. Crie **quatro usuários de teste** em Authentication › Users, com e-mails
-   inventados (`dona.a@teste.local` e companhia), todos com **Auto Confirm**.
-2. Abra [`02-teste.sql`](02-teste.sql), troque os quatro e-mails no topo se
-   tiver usado outros, e rode inteiro no SQL Editor.
+**Uma pessoa com pagamento anotado também não pode ser apagada.** O lançamento
+aponta para ela, e a chave estrangeira segura. Isso tem peso na LGPD: quando
+alguém pedir para excluir a conta, a saída é **anonimizar o cadastro e manter o
+lançamento**, não apagar. Precisa estar escrito no aviso de privacidade.
 
-A resposta aparece na aba de mensagens, uma linha por checagem. O fim tem
-que dizer:
+**Regra barrada nem sempre dá erro.** Em `INSERT` dá; em `UPDATE` e `DELETE` ela
+apenas não mexe em linha nenhuma, em silêncio. Um teste que só espera exceção
+reprova regras que estão funcionando. O `02-teste.sql` confere as duas formas.
 
-```
-  passou: 16     falhou: 0
-  Todas as regras seguraram.
-```
+## Dois avisos de segurança que ficam de propósito
 
-**Se aparecer qualquer `FALHOU`, pare.** Significa que alguém consegue ver
-ou mudar o que não devia, e seguir em frente só empilha código em cima de
-um buraco.
+O verificador do Supabase acusa `email_por_telefone` como função poderosa que
+qualquer um pode chamar. **É intencional**: é ela que permite entrar pelo
+telefone sem pagar SMS. O preço é que quem souber o telefone de alguém descobre
+o e-mail dela.
 
-O teste roda dentro de uma transação e desfaz tudo no fim — nenhuma
-academia de mentira fica no banco. Só os quatro usuários continuam lá;
-apague-os pelo painel quando quiser.
+Se um dia isso incomodar, apague a função e o login passa a ser só por e-mail.
+Enquanto ficar, os dois avisos vão continuar aparecendo — não são descuido.
 
-## O que fica guardado onde
+## As nove tabelas
 
 | Tabela | O que é |
 |---|---|
@@ -86,28 +90,23 @@ matrícula ativa sem pagamento no mês.
 
 ## Coisas que valem saber
 
-**Papéis são acumuláveis.** Uma pessoa pode ser `professor` e `gestor` na
-mesma academia. O `admin` já pode tudo sozinho — o dono não precisa
-acumular nada.
+**Papéis são acumuláveis.** Uma pessoa pode ser `professor` e `gestor` na mesma
+academia. O `admin` já pode tudo sozinho — o dono não precisa acumular nada.
 
-**As regras moram no banco, não na tela.** Checagem feita só no app se
-contorna pelo menu de desenvolvedor do navegador. Ao criar tabela nova,
-lembre de ligar `row level security` nela — sem isso ela nasce aberta.
+**As regras moram no banco, não na tela.** Ao criar tabela nova, ligue
+`row level security` nela: sem isso ela nasce aberta. E ponha `set search_path`
+em toda função nova, senão o verificador acusa — com razão.
 
-**Lançamento não se edita nem se apaga.** Errou, registre um estorno. Isso
-é o que permite responder "para onde foi aquele R$ 120" seis meses depois.
+**A pessoa é global, o vínculo é local.** Quem treina numa academia e dá aula em
+outra é a mesma pessoa, com dois vínculos e um login só. Efeito colateral a
+conhecer: se a recepção de uma academia corrigir o telefone dela, a outra
+academia vê o telefone novo.
 
-**A pessoa é global, o vínculo é local.** Quem treina numa academia e dá
-aula em outra é a mesma pessoa, com dois vínculos e um login só. Efeito
-colateral a conhecer: se a recepção de uma academia corrigir o telefone
-dela, a outra academia vê o telefone novo. É o mesmo ser humano — mas se
-isso incomodar, é aqui que se mexe.
+**O plano gratuito desliga o projeto após 7 dias sem uso.** É só reabrir pelo
+painel. Quando entrar academia de verdade, US$ 25 por mês vira custo fixo.
 
-**Entrar pelo telefone tem um preço.** A função `email_por_telefone` deixa
-quem souber o número de alguém descobrir o e-mail dela. Foi o jeito de ter
-login por telefone sem pagar SMS. Se preferir não correr esse risco, apague
-a função e o login passa a ser só por e-mail.
+## Refazendo do zero
 
-**O plano gratuito desliga o projeto após 7 dias sem uso.** Enquanto for só
-você construindo, é só reabrir pelo painel. Quando entrar academia de
-verdade, US$ 25 por mês vira custo fixo.
+Se algum dia precisar recomeçar: crie um projeto novo, cole o `01-esquema.sql`
+inteiro no SQL Editor e rode. Depois o `02-teste.sql`, que precisa de quatro
+usuários criados em Authentication › Users (ele explica no topo).

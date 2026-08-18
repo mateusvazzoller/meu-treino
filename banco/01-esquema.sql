@@ -185,6 +185,10 @@ create index atribuicoes_aluno on atribuicoes (aluno_id, ativa) where ativa;
 -- =====================================================================
 -- 3. FUNÇÕES QUE AS REGRAS USAM
 --
+-- Todas levam `set search_path` fixo: sem isso, alguém que consiga criar
+-- uma tabela em outro schema pode fazer a função ler a tabela errada. O
+-- verificador do Supabase (get_advisors) acusa quem esquecer.
+--
 -- Todas são SECURITY DEFINER de propósito: elas precisam ler `vinculos`
 -- sem passar pelas regras de `vinculos`, senão a regra chamaria a função
 -- que consultaria a tabela que dispara a regra — e o banco entra em
@@ -244,7 +248,7 @@ $$;
 
 create or replace function app.normaliza_telefone(t text)
 returns text
-language sql immutable as $$
+language sql immutable set search_path = public, pg_temp as $$
   select nullif(regexp_replace(coalesce(t, ''), '\D', '', 'g'), '')
 $$;
 
@@ -298,7 +302,7 @@ create trigger criar_pessoa_no_cadastro
 -- ---- 5.2 ninguém se torna dono do sistema pela API ---------------------
 create or replace function app.trava_suporte()
 returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public, pg_temp as $$
 begin
   if new.suporte is distinct from old.suporte and auth.uid() is not null then
     raise exception 'A marca de suporte só muda pelo painel do Supabase.';
@@ -315,7 +319,7 @@ create trigger trava_suporte
 -- com uma chamada à API.
 create or replace function app.trava_autopromocao()
 returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public, pg_temp as $$
 begin
   if auth.uid() is not null and old.pessoa_id = auth.uid()
      and new.papeis is distinct from old.papeis then
@@ -358,7 +362,7 @@ create trigger trava_ultimo_admin
 -- ---- 5.5 papéis sem repetição e sempre na mesma ordem ------------------
 create or replace function app.arruma_papeis()
 returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public, pg_temp as $$
 begin
   new.papeis := (
     select array_agg(distinct p order by p) from unnest(new.papeis) as p
@@ -376,7 +380,7 @@ create trigger arruma_papeis
 -- ---- 5.6 lançamento não se edita nem se apaga --------------------------
 create or replace function app.trava_lancamento()
 returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public, pg_temp as $$
 begin
   raise exception 'Lançamento não se altera nem se apaga. Registre um estorno.';
 end $$;
@@ -388,7 +392,7 @@ create trigger trava_lancamento
 -- ---- 5.7 competência sempre no dia 1, e quem anotou é quem está logado --
 create or replace function app.arruma_lancamento()
 returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public, pg_temp as $$
 begin
   new.competencia := date_trunc('month', new.competencia)::date;
   if auth.uid() is not null then
@@ -406,11 +410,11 @@ create trigger arruma_lancamento
 -- diferem por uma letra e resolver isso com jsonb dentro do gatilho é o
 -- tipo de truque que ninguém entende quando quebrar.
 create or replace function app.carimba_ficha()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public, pg_temp as $$
 begin new.atualizada_em := now(); return new; end $$;
 
 create or replace function app.carimba_registro()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public, pg_temp as $$
 begin new.atualizado_em := now(); return new; end $$;
 
 create trigger carimba before update on fichas
