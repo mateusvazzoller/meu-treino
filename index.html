@@ -747,7 +747,7 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
       <div><div class="ot">Versão do app</div><div class="od" id="verInfo">verificando…</div></div>
       <button class="mini" id="btnVer">Procurar<br>atualização</button>
     </div>
-    <div class="opt">
+    <div class="opt" id="optProva">
       <div><div class="ot">Dia da prova</div><div class="od">Liga a contagem regressiva na capa</div></div>
       <input type="date" id="inProva" class="dateip" aria-label="Data da prova">
     </div>
@@ -821,6 +821,11 @@ var PLAN = [];
    e a tela não é alcançável. Para trazer de volta, troque para true; nada
    mais precisa mudar. */
 var MOSTRA_SIMULADO = false;
+
+/* A contagem regressiva para "o dia da prova" é irmã do simulado: veio da
+   preparação para concurso. Numa academia ela não tem alvo. Desligada do
+   mesmo jeito — o mecanismo fica, só não há como definir a data. */
+var MOSTRA_DATA_PROVA = false;
 
 /* Busca de vídeo por exercício. Não há link fixo: o ícone abre a busca
    pronta no YouTube, e o link que você salvar passa a ter prioridade.
@@ -2019,6 +2024,8 @@ function renderTabs(){
   tabH.setAttribute("aria-pressed", S.tab==="hist");
   tabG.setAttribute("aria-pressed", S.tab==="gestao");
   tabS.style.display = MOSTRA_SIMULADO ? "" : "none";
+  var op = document.getElementById("optProva");
+  if(op) op.style.display = MOSTRA_DATA_PROVA ? "" : "none";
   if(S.tab === "sim" && !MOSTRA_SIMULADO){ S.tab = "treino"; save(); }
   /* esconder a aba não é proteção, é arrumação: quem não pode já é
      barrado pelo banco, mesmo que force a aba na marra */
