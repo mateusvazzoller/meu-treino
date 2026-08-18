@@ -270,6 +270,12 @@ sintoma seria "o outro app parou de funcionar sem internet", horas depois e
 sem relação aparente. Por isso a faxina é filtrada por `PREFIXO` nos dois
 repositórios — não remova esse filtro.
 
+**O QR do endereço também foi vítima disso.** O `index.html` nasceu como cópia
+e ficou com o QR e o texto do `/taf/` — quem lesse o código na tela de instalar
+baixaria o app errado. Foi confirmado lendo o QR de volta com um decodificador,
+não no olho: um QR errado é indistinguível de um certo. Regerar é
+`python tools/gerar-qr.py`, e o `<path>` e o texto do `#iUrl` mudam **juntos**.
+
 Pela mesma razão o **ícone é azul** (`#4A90FF`) e o do Meu TAF é laranja: os dois
 convivem na mesma tela inicial e precisam ser distinguíveis a 48 px. A marca (o
 T construído) é a mesma de propósito — são irmãos.
@@ -284,6 +290,7 @@ T construído) é a mesma de propósito — são irmãos.
 | `icons/` | Ícones PNG, gerados por `tools/gerar-icones.py` |
 | `sons/` | Avisos sonoros em MP3 + `CREDITOS.txt` com autoria e licença |
 | `tools/gerar-icones.py` | Regera os ícones a partir das cores do app |
+| `tools/gerar-qr.py` | Regera o QR do endereço do app (precisa de `pip install qrcode`) |
 | `banco/` | Estrutura do Supabase: tabelas, regras de permissão e o teste delas |
 
 Não existe build, bundler nem dependência. Editar `index.html` e dar push é o
