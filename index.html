@@ -798,51 +798,23 @@ try{ if(!localStorage.getItem("meu-treino-sessao")) document.documentElement.cla
 "use strict";
 
 /* ============================================================
-   PLANO DE EXEMPLO — feito para ser jogado fora
-   Isto NÃO é treino prescrito por ninguém: é o mínimo para o app abrir
-   com conteúdo enquanto o Meu Treino ainda não sabe carregar planos de
-   verdade. Os exercícios foram escolhidos entre os que já têm vídeo
-   verificado em VIDEO, para o botão ▶ funcionar de saída.
-   Ver CLAUDE.md, "O plano precisa virar dado".
+   O PLANO DE TREINO
 
-   Formato de cada bloco: `sem` traz as 4 semanas, `s` = nº de séries,
-   `r` = descanso em segundos, `rt` = descanso como o professor escreveu.
+   Vazio de propósito. O treino não mora mais no código: ele vem da ficha
+   que o professor monta e entrega ao aluno. Enquanto essa parte não
+   existir, o app abre no estado vazio, que é exatamente o que um aluno
+   recém-cadastrado vê antes de receber treino.
+
+   Formato de cada sessão, para quando a ficha chegar aqui:
+   { id, dia, nome, foco, kind, blocos:[ { id, t, tipo, nota,
+       sem:[ cfgSemana1..4 ] } ] }
+   Cada `cfg`: s = nº de séries, r = descanso em segundos, rt = descanso
+   como o professor escreveu, it = exercícios { n, p, reg:{t} }.
    ============================================================ */
 var eq = function(o){ return [o,o,o,o]; };
 var pair = function(a,b){ return [a,a,b,b]; };
 
-var PLAN = [
-{ id:"a", dia:"Dia 1", nome:"Treino A", foco:"Exemplo · inferior", kind:"Academia",
-  blocos:[
-    { id:"b1", t:"Agachamento", sem: eq({ s:3, r:90,
-        it:[{n:"Agachamento", p:"10 repetições", reg:{t:"kg"}}] }) },
-    { id:"b2", t:"Agachamento búlgaro", sem: eq({ s:3, r:90,
-        it:[{n:"Agachamento búlgaro", p:"10 reps por perna", reg:{t:"kg"}}] }) },
-    { id:"b3", t:"Prancha", sem: eq({ s:3, r:60,
-        it:[{n:"Prancha", p:"tempo máximo", reg:{t:"seg"}}] }) }
-  ]},
-
-{ id:"b", dia:"Dia 2", nome:"Treino B", foco:"Exemplo · superior", kind:"Academia",
-  blocos:[
-    { id:"b1", t:"Puxada alta", sem: eq({ s:3, r:90,
-        it:[{n:"Puxada alta + isometria", p:"10 repetições", reg:{t:"kg"}}] }) },
-    { id:"b2", t:"Desenvolvimento", sem: eq({ s:3, r:90,
-        it:[{n:"Desenvolvimento (press)", p:"10 repetições", reg:{t:"kg"}}] }) },
-    { id:"b3", t:"Ombros", sem: eq({ s:3, r:60,
-        it:[{n:"Elevação lateral", p:"12 repetições", reg:{t:"kg"}},
-            {n:"Posterior de ombro", p:"12 repetições", reg:{t:"kg"}}] }) }
-  ]},
-
-{ id:"c", dia:"Dia 3", nome:"Treino C", foco:"Exemplo · condicionamento", kind:"Extra",
-  blocos:[
-    { id:"b1", t:"Circuito", tipo:"Complexo", sem: eq({ s:3, r:120,
-        it:[{n:"Burpee com salto", p:"10 repetições"},
-            {n:"Salto na caixa", p:"10 repetições"},
-            {n:"Farmer carry", p:"30 m", reg:{t:"kg"}}] }) },
-    { id:"b2", t:"Abdômen", sem: eq({ s:3, r:60,
-        it:[{n:"Hollow hold", p:"tempo máximo", reg:{t:"seg"}}] }) }
-  ]}
-];
+var PLAN = [];
 
 /* Busca de vídeo por exercício. Não há link fixo: o ícone abre a busca
    pronta no YouTube, e o link que você salvar passa a ter prioridade.
@@ -980,14 +952,20 @@ function save(){
 function sess(w,d){ return PLAN[d]; }
 function wIdx(){ return S.week-1; }
 function bs(bloco,w){ return bloco.sem[w-1]; }
-function kDone(w,d,b,i){ return "w"+w+"|"+PLAN[d].id+"|"+b+"|"+i; }
-function kLog(w,d,b,it,i){ return "w"+w+"|"+PLAN[d].id+"|"+b+"|"+it+"|"+i; }
-function kSess(w,d){ return "w"+w+"|"+PLAN[d].id; }
+/* As chaves carregam o id da sessão do plano. Com o app sem ficha, PLAN
+   está vazio e PLAN[d] não existe — devolver "" faz a busca não achar
+   nada, que é justamente o certo: sem treino não há o que marcar. Sem
+   esta guarda o app quebrava uma vez por segundo, no relógio do topo. */
+function kDone(w,d,b,i){ return PLAN[d] ? "w"+w+"|"+PLAN[d].id+"|"+b+"|"+i : ""; }
+function kLog(w,d,b,it,i){ return PLAN[d] ? "w"+w+"|"+PLAN[d].id+"|"+b+"|"+it+"|"+i : ""; }
+function kSess(w,d){ return PLAN[d] ? "w"+w+"|"+PLAN[d].id : ""; }
 
 function totalSets(w,d){
+  if(!PLAN[d]) return 0;
   return PLAN[d].blocos.reduce(function(a,b){ return a + bs(b,w).s; },0);
 }
 function doneSets(w,d){
+  if(!PLAN[d]) return 0;
   var n=0;
   PLAN[d].blocos.forEach(function(b){
     var q=bs(b,w).s;
@@ -1414,6 +1392,32 @@ function renderSessTime(){
 }
 setInterval(renderSessTime, 1000);
 
+/* Tela de quem ainda não tem ficha. Não é um erro nem uma falha: é o
+   estado normal de todo aluno recém-cadastrado, e vai ser a primeira
+   coisa que ele vê. Por isso diz o que vai acontecer, e não o que falta. */
+function renderSemTreino(){
+  viewEl.innerHTML = "";
+  var podeMontar = typeof podeGerir === "function" && podeGerir();
+  viewEl.appendChild(el('<div class="banner">' +
+    '<h3>Nenhum treino por aqui ainda</h3>' +
+    '<p>' + (podeMontar
+      ? "A montagem de ficha ainda está sendo construída. Enquanto isso, o " +
+        "cronômetro e o simulado funcionam normalmente."
+      : "Assim que o seu professor montar a sua ficha, ela aparece aqui " +
+        "sozinha — não precisa fazer nada.") +
+    '</p></div>'));
+
+  var atalhos = el('<div class="gcard" style="margin-top:14px">' +
+    '<div class="gh"><div class="gn">' +
+    '<div class="t">O que já dá para usar</div>' +
+    '<div class="s">Cronômetro de descanso e simulado de provas</div>' +
+    '</div></div></div>');
+  var b = el('<button class="mini" style="margin-top:12px">Abrir o cronômetro</button>');
+  b.addEventListener("click", function(){ startUp(null, "Cronômetro"); });
+  atalhos.appendChild(b);
+  viewEl.appendChild(atalhos);
+}
+
 /* ============================================================
    Render — cabeçalho
    ============================================================ */
@@ -1422,6 +1426,18 @@ var daysEl  = document.getElementById("days");
 var viewEl  = document.getElementById("view");
 
 function renderHead(){
+  /* Sem ficha não há semana nem dia para escolher: os seletores somem em
+     vez de aparecerem vazios, que é pior do que não aparecer. */
+  var temPlano = PLAN.length > 0;
+  weeksEl.style.display = temPlano ? "" : "none";
+  daysEl.style.display  = temPlano ? "" : "none";
+  if(!temPlano){
+    weeksEl.innerHTML = ""; daysEl.innerHTML = "";
+    document.getElementById("cycleLabel").textContent = "Sem treino no aparelho";
+    renderSessTime();
+    return;
+  }
+
   weeksEl.innerHTML = "";
   for(var w=1; w<=4; w++){
     (function(w){
@@ -1452,7 +1468,7 @@ function renderHead(){
   var allDone = true;
   for(var d2=0; d2<PLAN.length; d2++){ if(!S.sess[kSess(4,d2)]) { allDone=false; break; } }
   document.getElementById("cycleLabel").textContent =
-    allDone ? "Bloco de 4 semanas concluído" : "Plano de exemplo · 4 semanas";
+    allDone ? "Bloco de 4 semanas concluído" : "Treino em andamento";
 
   renderSessTime();
 }
@@ -1463,6 +1479,7 @@ function renderHead(){
 function renderView(){
   if(S.tab==="gestao"){ renderGestao(); return; }
   if(S.tab==="hist"){ renderHist(); return; }
+  if(S.tab==="treino" && !PLAN.length){ renderSemTreino(); return; }
   if(S.tab==="sim"){ renderSim(); return; }
   var d = S.day, w = S.week, sx = PLAN[d];
   var tot = totalSets(w,d), fez = doneSets(w,d);
@@ -2980,7 +2997,7 @@ function renderGestao(){
    ============================================================ */
 load();
 if(S.week<1||S.week>4) S.week=1;
-if(S.day<0||S.day>=PLAN.length) S.day=0;
+if(S.day<0||S.day>=PLAN.length) S.day=0;   /* com plano vazio vira 0 e ninguém usa */
 if(["treino","sim","hist","gestao"].indexOf(S.tab)<0) S.tab="treino";
 tafInit();
 applyTheme(); syncCfgUI(); renderCapa();

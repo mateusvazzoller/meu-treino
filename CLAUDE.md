@@ -158,12 +158,19 @@ escreve o plano (o professor edita no app ou recebe pronto?); se um aparelho
 guarda vários planos ao mesmo tempo ou um por vez; se o número de semanas passa
 a ser livre.
 
-### O plano de exemplo é descartável
+### O plano de exemplo foi embora
 
-`PLAN` e `PROVAS` hoje contêm dados de **exemplo**, marcados como tal no código.
-Existem só para o app abrir com conteúdo. Não são prescrição de ninguém e não
-devem ser tratados como referência — jogue fora quando o carregamento de planos
-existir.
+`PLAN` agora é `[]`. O treino não mora mais no código: vem da ficha que o
+professor monta. Enquanto essa parte não existir, o app abre no **estado
+vazio** (`renderSemTreino`), que é exatamente o que um aluno recém-cadastrado
+vê — não é erro, é o normal dele.
+
+**Armadilha que isso revelou:** `kSess`, `kDone` e `kLog` montavam a chave com
+`PLAN[d].id`. Com o plano vazio, `PLAN[d]` não existe e o app quebrava **uma
+vez por segundo**, no relógio do topo. As três (mais `totalSets` e `doneSets`)
+agora têm guarda. Qualquer função nova que indexe `PLAN` precisa da mesma.
+
+`PROVAS` continua com as cinco provas do TAF da PCPR, ainda como exemplo.
 
 ## Armadilha herdada: os dois apps dividem o mesmo endereço
 
