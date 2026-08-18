@@ -281,17 +281,27 @@ grant execute on function public.email_por_telefone(text) to anon, authenticated
 -- =====================================================================
 
 -- ---- 5.1 pessoa nova ganha ficha de cadastro sozinha -------------------
+-- O nome vem do que a pessoa digitou no cadastro. O app manda em `nome`,
+-- mas fluxos de login social devolvem `name` ou `full_name` — aceitar os
+-- três evita cadastro nascer sem nome por causa do rótulo do campo. O
+-- reserva (pedaço antes do @) só entra quando não veio nome nenhum, que é
+-- o caso de quem foi criado à mão pelo painel do Supabase, que não tem
+-- campo de nome.
 create or replace function app.ao_criar_usuario()
 returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  n text;
 begin
+  n := coalesce(
+         nullif(trim(new.raw_user_meta_data->>'nome'), ''),
+         nullif(trim(new.raw_user_meta_data->>'name'), ''),
+         nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+         split_part(new.email, '@', 1)
+       );
   insert into public.pessoas (id, nome, email, telefone)
-  values (
-    new.id,
-    coalesce(nullif(trim(new.raw_user_meta_data->>'nome'), ''), split_part(new.email, '@', 1)),
-    new.email,
-    app.normaliza_telefone(new.raw_user_meta_data->>'telefone')
-  );
+  values (new.id, n, new.email,
+          app.normaliza_telefone(new.raw_user_meta_data->>'telefone'));
   return new;
 end $$;
 
