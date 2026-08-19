@@ -1516,8 +1516,9 @@ function renderSemTreino(){
   viewEl.appendChild(el('<div class="banner">' +
     '<h3>Nenhum treino por aqui ainda</h3>' +
     '<p>' + (podeMontar
-      ? "Nenhuma ficha foi entregue a você. Na aba Gestão dá para entregar " +
-        "uma ficha a um aluno; a tela de montar ficha ainda está em construção."
+      ? "Nenhuma ficha foi entregue a <b>você</b> — o que é normal para quem " +
+        "administra. Entregar ficha aos alunos é na aba Gestão. Para receber " +
+        "uma, é preciso estar cadastrado como aluno de alguma academia."
       : "Assim que o seu professor entregar a sua ficha, ela aparece aqui " +
         "sozinha — não precisa fazer nada.") +
     '</p></div>'));
@@ -2762,7 +2763,10 @@ function buscaPerfil(jaTentou){
         /* as academias decidem se a aba Gestão aparece */
         carregaAcademias().then(function(){
           renderTabs();
-          if(S.tab === "gestao") renderView();
+          /* A tela de "sem treino" fala uma coisa para quem entrega ficha e
+             outra para quem recebe — e ela é desenhada ANTES desta resposta
+             chegar. Sem redesenhar, quem administra lia o texto de aluno. */
+          if(S.tab === "gestao" || !PLAN.length) renderView();
         }).catch(function(){});
         sincronizaFicha();
       }

@@ -219,6 +219,28 @@ Qualquer função nova que indexe `PLAN` precisa da mesma.
 
 ## O trabalho que ainda não foi feito
 
+### Ninguém consegue se colocar numa academia pelo app
+
+A Gestão só sabe **criar pessoa nova** (que cria um login). Não há como
+vincular alguém que **já tem conta** a uma academia — nem a si mesmo.
+
+Apareceu no primeiro teste de ponta a ponta: o dono do sistema não é membro
+de academia nenhuma (ele enxerga todas para administrar), então não aparecia
+na lista de quem pode receber ficha, e não havia como ele receber a própria
+ficha. Foi resolvido com um `insert` à mão em `vinculos` — o que não é
+resposta para um cliente.
+
+Numa academia de verdade isso aparece de três jeitos: o dono quer treinar,
+um professor de outra unidade passa a dar aula nesta, e um aluno que já
+treinou em outra academia do sistema volta. Nos três, a pessoa existe e o
+que falta é só o vínculo.
+
+O caminho provável é uma busca por e-mail ou telefone dentro do cadastro:
+achou alguém, cria o vínculo em vez de um login novo. **Cuidado ao fazer**:
+a busca não pode virar uma forma de descobrir quem existe no sistema — a
+regra `vejo a mim e a quem eu administro` está lá justamente para isso, e
+uma busca livre a contorna.
+
 ### As provas ainda são código
 
 `PROVAS` tem as cinco provas do TAF da PCPR escritas no `index.html`. Numa
