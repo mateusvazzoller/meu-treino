@@ -23,6 +23,13 @@ Ver `banco/LEIA-ME.md`.
 arquivo junto, senão refazer o projeto do zero traz de volta algo diferente
 do que está no ar.
 
+**Isso já aconteceu uma vez.** A regra `admin cria vínculo` foi corrigida no
+banco para deixar a recepção matricular, e o arquivo ficou com a versão
+antiga por dias — quem refizesse o projeto teria uma recepção incapaz de
+cadastrar, sem nenhum erro que apontasse a causa. Descoberto por acaso em
+agosto de 2026, comparando `pg_policies` com o arquivo. **Ao mexer em regra,
+compare os dois.**
+
 Existe conector MCP do Supabase ligado na conta do usuário, então dá para
 aplicar migração e consultar direto daqui. Duas coisas que ele **não** faz e
 continuam sendo do usuário: criar usuários (tem campo de senha) e marcar o
@@ -270,6 +277,25 @@ O que **não** existe ainda: pagamento adiantado (a visão só gera competência
 até o mês corrente), desconto, multa por atraso e qualquer forma de cobrar —
 o sistema registra o que já aconteceu.
 
+### Vincular quem já tem conta — feito
+
+A recepção faz a mesma coisa de sempre (Cadastrar pessoa); **o sistema é que
+decide** se cria uma conta ou só coloca nesta academia alguém que já tem uma.
+Sem isso, o professor que passa a dar aula em outra unidade ganharia um
+segundo login e o histórico dele ficaria partido em dois.
+
+A busca é a função `pessoa_por_email`, e ela foi desenhada contra um risco
+concreto: **uma busca livre viraria uma forma de descobrir quem existe no
+sistema**, contornando a regra `vejo a mim e a quem eu administro`. Por isso
+ela (1) só responde a quem já pode cadastrar naquela academia, (2) devolve só
+id e nome, e (3) exige o e-mail **inteiro** — não há busca por pedaço de
+nome. Testado: um estranho pedindo um e-mail que existe recebe vazio.
+
+O `get_advisors` acusa essa função como "signed-in users can execute security
+definer" — é esperado e correto: a checagem de quem pode está **dentro** dela,
+que é onde tem que estar. O mesmo vale para `email_por_telefone`, que precisa
+responder a quem ainda nem entrou.
+
 ### A armadilha do botão sem estilo
 
 O reset global é `button{background:none;border:none;padding:0}`. Um botão sem
@@ -281,28 +307,6 @@ Agora existe `.fbtn` para a linha de ações de formulário. **Todo formulário
 novo usa ela**; se você escrever `class="pri"` fora dela, não acontece nada.
 
 ## O trabalho que ainda não foi feito
-
-### Ninguém consegue se colocar numa academia pelo app
-
-A Gestão só sabe **criar pessoa nova** (que cria um login). Não há como
-vincular alguém que **já tem conta** a uma academia — nem a si mesmo.
-
-Apareceu no primeiro teste de ponta a ponta: o dono do sistema não é membro
-de academia nenhuma (ele enxerga todas para administrar), então não aparecia
-na lista de quem pode receber ficha, e não havia como ele receber a própria
-ficha. Foi resolvido com um `insert` à mão em `vinculos` — o que não é
-resposta para um cliente.
-
-Numa academia de verdade isso aparece de três jeitos: o dono quer treinar,
-um professor de outra unidade passa a dar aula nesta, e um aluno que já
-treinou em outra academia do sistema volta. Nos três, a pessoa existe e o
-que falta é só o vínculo.
-
-O caminho provável é uma busca por e-mail ou telefone dentro do cadastro:
-achou alguém, cria o vínculo em vez de um login novo. **Cuidado ao fazer**:
-a busca não pode virar uma forma de descobrir quem existe no sistema — a
-regra `vejo a mim e a quem eu administro` está lá justamente para isso, e
-uma busca livre a contorna.
 
 ### As provas ainda são código
 

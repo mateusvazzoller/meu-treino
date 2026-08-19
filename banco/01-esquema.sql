@@ -489,8 +489,15 @@ create policy "vejo meus vínculos e os de quem administro" on vinculos
     pessoa_id = auth.uid()
     or app.tem_papel(academia_id, array['professor','recepcao','gestor','admin']::papel[])
   );
-create policy "admin cria vínculo" on vinculos
-  for insert with check (app.tem_papel(academia_id, array['admin']::papel[]));
+-- A recepção precisa matricular aluno; o resto dos papéis é do admin. A
+-- primeira versão desta regra só deixava o admin, e a recepção não
+-- conseguia cadastrar ninguém — foi corrigida no banco em agosto de 2026.
+create policy "admin cria qualquer vinculo, recepcao so aluno" on vinculos
+  for insert with check (
+    app.tem_papel(academia_id, array['admin']::papel[])
+    or (app.tem_papel(academia_id, array['recepcao','gestor']::papel[])
+        and papeis = array['aluno']::papel[])
+  );
 create policy "admin muda vínculo" on vinculos
   for update using (app.tem_papel(academia_id, array['admin']::papel[]));
 create policy "admin remove vínculo" on vinculos
@@ -562,6 +569,29 @@ create policy "o aluno apaga o que registrou" on registros
   for delete using (
     aluno_id = auth.uid() or app.tem_papel(academia_id, array['admin']::papel[])
   );
+
+-- ---- achar quem já tem conta -------------------------------------------
+-- A regra "vejo a mim e a quem eu administro" esconde de propósito quem é
+-- de outra academia — é ela que impede o sistema de virar uma lista de
+-- quem existe. Mas é a mesma regra que impedia a recepção de vincular um
+-- professor de outra unidade, ou um aluno que voltou.
+--
+-- Esta função enxerga todas as pessoas, mas só responde a quem já pode
+-- cadastrar naquela academia, devolve o mínimo (id e nome) e só quando o
+-- e-mail bate INTEIRO. Não há busca por pedaço de nome, que seria a
+-- enumeração que a regra evita.
+create or replace function pessoa_por_email(p_academia uuid, p_email text)
+returns table (id uuid, nome text)
+language sql stable security definer set search_path = public, pg_temp as $$
+  select p.id, p.nome
+    from pessoas p
+   where lower(p.email) = lower(trim(p_email))
+     and app.tem_papel(p_academia, array['recepcao','gestor','admin']::papel[])
+   limit 1
+$$;
+revoke execute on function pessoa_por_email(uuid, text) from public;
+revoke execute on function pessoa_por_email(uuid, text) from anon;
+grant  execute on function pessoa_por_email(uuid, text) to authenticated;
 
 -- ---- planos ------------------------------------------------------------
 create policy "membro vê os planos" on planos

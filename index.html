@@ -3214,7 +3214,7 @@ document.getElementById("btnSenha").addEventListener("click", abreTrocaSenha);
    mostrar a mais nunca vira poder a mais.
    ============================================================ */
 var G = { academias: [], atual: null, pessoas: [], carregando: false, erro: "",
-          senhaNova: null, form: false,
+          senhaNova: null, form: false, jaTem: null,
           fichas: [], entregas: [], entregando: null, aviso: "",
           atividade: {}, olhando: null,
           fin: null, finCarregando: false, aberto: [], lancamentos: [],
@@ -3635,15 +3635,66 @@ function trocaPapel(vinculo, papel){
     });
 }
 
+/* Cadastrar é sempre a mesma ação para a recepção — o sistema é que decide
+   se cria uma conta ou só coloca na academia alguém que já tem uma. Sem
+   isto, o professor que passa a dar aula em outra unidade ganharia um
+   segundo login, e o histórico dele ficaria partido em dois. */
 function cadastraPessoa(dados, botao){
-  botao.disabled = true; botao.textContent = "Cadastrando…";
-  G.erro = ""; G.senhaNova = null;
-  supaFetch("/functions/v1/criar-pessoa", { metodo:"POST", comSessao:true, corpo:dados })
+  botao.disabled = true; botao.textContent = "Conferindo…";
+  G.erro = ""; G.senhaNova = null; G.jaTem = null;
+
+  supaFetch("/rest/v1/rpc/pessoa_por_email", { metodo:"POST", comSessao:true,
+            corpo:{ p_academia:dados.academia_id, p_email:dados.email } })
+    .then(function(r){
+      var achou = (r.ok && r.dados && r.dados[0]) || null;
+      if(!achou) return criaLoginNovo(dados, botao);
+
+      botao.disabled = false; botao.textContent = "Cadastrar";
+      if(G.pessoas.some(function(v){ return v.pessoa_id === achou.id; })){
+        G.erro = (primeiroNome(achou.nome) || "Essa pessoa") + " já está nesta academia.";
+        renderView();
+        return null;
+      }
+      G.jaTem = { pessoa:achou, papeis:dados.papeis };
+      renderView();
+      return null;
+    })
+    /* servidor fora do ar na consulta: segue pelo caminho antigo, que
+       devolve "e-mail já usado" se for o caso */
+    .catch(function(){ return criaLoginNovo(dados, botao); });
+}
+
+/* Coloca numa academia alguém que já tem conta. Vai com o crachá de quem
+   está pedindo, então quem decide se pode é a regra do banco: recepção e
+   gestor vinculam só como aluno, qualquer outro papel é do admin. */
+function vinculaExistente(botao){
+  if(!G.jaTem) return;
+  var p = G.jaTem.pessoa, papeis = G.jaTem.papeis;
+  botao.disabled = true; botao.textContent = "Vinculando…";
+  G.erro = "";
+  supaFetch("/rest/v1/vinculos", { metodo:"POST", comSessao:true,
+    corpo:{ academia_id:G.atual, pessoa_id:p.id, papeis:papeis } })
+    .then(function(r){
+      if(!r.ok) throw new Error("recusado");
+      G.jaTem = null; G.form = false;
+      return recarregaGestao();
+    })
+    .catch(function(){
+      G.erro = "O banco recusou. Recepção e gestor vinculam só como aluno; " +
+               "papel diferente disso é do admin.";
+      renderView();
+    });
+}
+
+function criaLoginNovo(dados, botao){
+  botao.textContent = "Cadastrando…";
+  return supaFetch("/functions/v1/criar-pessoa", { metodo:"POST", comSessao:true, corpo:dados })
     .then(function(r){
       if(!r.ok || !r.dados || !r.dados.ok){
         var e = (r.dados && r.dados.erro) || "";
         throw new Error(
-          e === "email_ja_usado"    ? "Esse e-mail já tem conta no sistema." :
+          e === "email_ja_usado"    ? "Esse e-mail já tem conta, mas não consegui " +
+                                      "descobrir de quem. Tente de novo." :
           e === "so_admin_da_papel" ? "Só o admin pode dar papel diferente de aluno." :
           e === "sem_permissao"     ? "Você não pode cadastrar nesta academia." :
           "Não consegui cadastrar. Confira o e-mail e tente de novo."
@@ -3687,7 +3738,7 @@ function renderGestao(){
         '<div class="s">' + (meus ? esc(meus) : "você não tem papel aqui") + '</div>' +
       '</div></div></button>');
     c.addEventListener("click", function(){
-      G.atual = a.id; G.form = false; G.senhaNova = null;
+      G.atual = a.id; G.form = false; G.senhaNova = null; G.jaTem = null;
       G.entregando = null; G.erro = ""; G.aviso = ""; G.olhando = null;
       G.fin = null; G.pagando = null; G.formPlano = false; G.formMatricula = false;
       carregaPessoas(a.id)
@@ -3778,6 +3829,34 @@ function renderCadastroPessoa(){
   if(!podeCadastrarNa(G.atual)) return;
   var euAdmin = souAdminNa(G.atual);
 
+  /* Achou alguém com esse e-mail: pergunta antes de mexer. Vincular é
+     diferente de cadastrar, e a pessoa do outro lado não fica sabendo. */
+  if(G.jaTem){
+    var pes = G.jaTem.pessoa;
+    var papeisTxt = (G.jaTem.papeis || []).map(function(x){
+      return ROTULO_PAPEL[x] || x; }).join(" · ");
+    var conf = el('<div class="gcard" style="margin-top:16px">' +
+      '<div class="gh"><div class="av">' +
+        esc((primeiroNome(pes.nome) || "?").charAt(0).toUpperCase()) + '</div>' +
+      '<div class="gn"><div class="t">' + esc(pes.nome) + '</div>' +
+      '<div class="s">já tem conta neste sistema</div></div></div>' +
+      '<div class="gaviso">Ninguém precisa de duas contas. A senha continua ' +
+      'sendo a que ' + esc(primeiroNome(pes.nome) || "ela") + ' já usa, e o ' +
+      'histórico de treino vem junto. Vincular só coloca ' +
+      esc(primeiroNome(pes.nome) || "a pessoa") + ' nesta academia como ' +
+      esc(papeisTxt || "aluno") + '.</div>' +
+      '<div class="fbtn"><button id="jtCancela">Cancelar</button>' +
+      '<button id="jtOk" class="pri">Vincular aqui</button></div></div>');
+    conf.querySelector("#jtCancela").addEventListener("click", function(){
+      G.jaTem = null; renderView();
+    });
+    conf.querySelector("#jtOk").addEventListener("click", function(){
+      vinculaExistente(this);
+    });
+    viewEl.appendChild(conf);
+    return;
+  }
+
   if(!G.form){
     var add = el('<button class="gbotao">+ Cadastrar pessoa</button>');
     add.addEventListener("click", function(){
@@ -3818,7 +3897,7 @@ function renderCadastroPessoa(){
   });
 
   f.querySelector("#gCancelar").addEventListener("click", function(){
-    G.form = false; G.erro = ""; renderView();
+    G.form = false; G.erro = ""; G.jaTem = null; renderView();
   });
   f.querySelector("#gSalvar").addEventListener("click", function(){
     var nome  = f.querySelector("#gNome").value.trim();
