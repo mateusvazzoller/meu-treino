@@ -237,6 +237,49 @@ Duas decisões que valem manter:
 "há 3 dias" em vez da data: a pergunta do professor é "ele sumiu?", não "que
 dia era".
 
+## O financeiro — feito
+
+A academia vende **mensalidade**; o plano diz **quanto custa o mês** e por
+quantos meses o aluno se comprometeu. Um trimestral de R$ 129,90 é 129,90 por
+mês durante três meses, e é assim que `inadimplencia` cobra: uma competência
+por mês. Isso está escrito na tela, porque cadastrar o valor total no lugar da
+mensalidade é o engano óbvio.
+
+O caminho: **plano → matrícula → mensalidade nasce todo mês → recepção
+registra o pagamento**. Sem matrícula não há o que cobrar.
+
+`inadimplencia` é uma visão, não tabela: para cada matrícula ativa ela gera um
+mês por competência e some com os já pagos. O app não sabe a regra de quem
+está devendo — ele pergunta.
+
+Testado contra o banco de verdade, com o crachá da recepção: matriculou com
+início há dois meses → **3 meses em aberto**; registrou um pagamento → **2**;
+estornou → **volta a 3**, e o caixa fecha em zero.
+
+Duas coisas que o teste ensinou:
+
+- **`lancamentos` não se apaga nem pelo dono do banco.** O gatilho
+  `trava_lancamento` barra `delete` e `update` vindos de qualquer um. Para
+  limpar dado de teste é preciso desligar o gatilho e religar — e religar
+  **na mesma chamada**, senão a academia fica com a trava desligada.
+- **Somar é do app, não do banco.** O caixa do mês sai dos lançamentos que já
+  estão na tela. Somar no servidor exigiria uma função nova a cada número que
+  alguém quiser ver.
+
+O que **não** existe ainda: pagamento adiantado (a visão só gera competências
+até o mês corrente), desconto, multa por atraso e qualquer forma de cobrar —
+o sistema registra o que já aconteceu.
+
+### A armadilha do botão sem estilo
+
+O reset global é `button{background:none;border:none;padding:0}`. Um botão sem
+classe própria vira **texto solto de 23 px**, que é como o "Entrar" apareceu
+quebrado uma vez — e como o "Cadastrar" do formulário de pessoas estava, sem
+ninguém notar. A classe `pri` só existia dentro do cronômetro.
+
+Agora existe `.fbtn` para a linha de ações de formulário. **Todo formulário
+novo usa ela**; se você escrever `class="pri"` fora dela, não acontece nada.
+
 ## O trabalho que ainda não foi feito
 
 ### Ninguém consegue se colocar numa academia pelo app

@@ -517,6 +517,17 @@ try{
   .fcampo input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .gerro{margin-top:12px;border:1px solid var(--warn);color:var(--warn);border-radius:9px;
          padding:10px 13px;font-size:13.5px;line-height:1.45}
+  /* Botões de ação de formulário. Sem isto o reset global (`button{background:
+     none;border:none;padding:0}`) deixa o botão como texto solto de 23 px de
+     altura — foi exatamente assim que o "Entrar" apareceu quebrado uma vez, e
+     o "Cadastrar" do formulário de pessoas estava assim sem ninguém notar. */
+  .fbtn{display:flex;gap:9px;margin-top:14px}
+  .fbtn button{flex:1;height:48px;border-radius:10px;border:1px solid var(--line);
+               background:var(--surface-2);color:var(--ink);font-size:15px;font-weight:600}
+  .fbtn button.pri{flex:2;background:var(--accent);border-color:var(--accent);
+                   color:var(--accent-ink);font-family:var(--f-display);font-size:16px;
+                   letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+  .fbtn button[disabled]{opacity:.55}
   .gbotao{width:100%;height:52px;margin-top:16px;border-radius:12px;background:var(--accent);
           color:var(--accent-ink);font-family:var(--f-display);font-size:17px;
           letter-spacing:.06em;text-transform:uppercase;font-weight:700}
@@ -557,6 +568,36 @@ try{
                    font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
   .exerc .sem span b{color:var(--ink);font-weight:600}
   .exerc .sem span.vazia{opacity:.45}
+  /* ---------- financeiro ---------- */
+  .resumo{display:flex;gap:9px;margin-top:10px}
+  .resumo .b{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);
+             border-radius:var(--radius);padding:13px 14px}
+  .resumo .b .r{font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+                color:var(--ink-3);font-weight:700}
+  .resumo .b .v{font-size:21px;font-weight:700;margin-top:5px;color:var(--ink);
+                font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .resumo .b.dev .v{color:var(--warn)}
+  .divida{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+          padding:13px 14px;margin-top:9px}
+  .divida.atrasada{border-color:var(--warn)}
+  .divida .lin{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .divida .nm{font-weight:600;font-size:14.5px;color:var(--ink);overflow:hidden;
+              text-overflow:ellipsis;white-space:nowrap}
+  .divida .vl{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;
+              font-variant-numeric:tabular-nums}
+  .divida .sub{margin-top:4px;font-size:12.5px;color:var(--ink-2)}
+  .divida .atraso{color:var(--warn);font-weight:600}
+  .divida .acoes{margin-top:11px}
+  .pgto{border-top:1px solid var(--line-soft);margin-top:11px;padding-top:11px}
+  .lanc{display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+        padding:10px 2px;border-bottom:1px solid var(--line-soft)}
+  .lanc .q{font-size:13.5px;color:var(--ink);min-width:0}
+  .lanc .q i{font-style:normal;color:var(--ink-3);font-size:12px;display:block;margin-top:2px}
+  .lanc .v{font-size:14px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .lanc.estorno .v{color:var(--warn)}
+  .lanc.desfeito .q{text-decoration:line-through;color:var(--ink-3)}
+  .lanc button{border:1px solid var(--line);border-radius:7px;padding:5px 9px;
+               font-size:11px;color:var(--ink-3);background:transparent;margin-left:8px}
   /* `.mini` (9,5 px, parecendo link) escondia o "sair" a ponto de o usuário
      jurar que ele não existia. Sair da conta é ação de peso: merece contorno,
      área de toque e a cor de atenção. */
@@ -1141,6 +1182,40 @@ function hoje(){
   var p = function(n){ return (n<10?"0":"")+n; };
   return p(d.getDate())+"/"+p(d.getMonth()+1)+" · "+p(d.getHours())+":"+p(d.getMinutes());
 }
+var MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho",
+             "agosto","setembro","outubro","novembro","dezembro"];
+
+/* Dinheiro escrito como o brasileiro lê. Não uso toLocaleString porque o
+   app tem que funcionar igual em qualquer aparelho, inclusive nos que vêm
+   com o sistema em outro idioma. */
+function fmtDin(v){
+  var n = Number(v || 0);
+  var s = Math.abs(n).toFixed(2).split(".");
+  var inteiro = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (n < 0 ? "-" : "") + "R$ " + inteiro + "," + s[1];
+}
+
+/* "agosto de 2026". A competência é sempre o dia 1 do mês de referência —
+   quem garante isso é um gatilho no banco, não o app. */
+function mesBr(iso){
+  var p = String(iso || "").split("-");
+  if(p.length < 2) return "";
+  return MESES[(parseInt(p[1], 10) || 1) - 1] + " de " + p[0];
+}
+function mesCurto(iso){
+  var p = String(iso || "").split("-");
+  if(p.length < 2) return "";
+  return (MESES[(parseInt(p[1], 10) || 1) - 1] || "").slice(0,3) + "/" + p[0].slice(2);
+}
+function diaBr(iso){
+  var p = String(iso || "").split("-");
+  return p.length < 3 ? "" : p[2] + "/" + p[1];
+}
+function primeiroDiaDoMes(){
+  var d = new Date();
+  return d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth()+1) + "-01";
+}
+
 /* O banco guarda data como aaaa-mm-dd. `dataBr` é para o olho humano. */
 function dataISO(){
   var d = new Date(), p = function(n){ return (n<10?"0":"")+n; };
@@ -3141,7 +3216,10 @@ document.getElementById("btnSenha").addEventListener("click", abreTrocaSenha);
 var G = { academias: [], atual: null, pessoas: [], carregando: false, erro: "",
           senhaNova: null, form: false,
           fichas: [], entregas: [], entregando: null, aviso: "",
-          atividade: {}, olhando: null };
+          atividade: {}, olhando: null,
+          fin: null, finCarregando: false, aberto: [], lancamentos: [],
+          planos: [], matriculas: [], pagando: null,
+          formPlano: false, formMatricula: false };
 var ROTULO_PAPEL = { aluno:"Aluno", professor:"Professor", recepcao:"Recepção",
                      gestor:"Gestor", admin:"Admin" };
 var ORDEM_PAPEL = ["aluno","professor","recepcao","gestor","admin"];
@@ -3163,6 +3241,20 @@ function podeCadastrarNa(id){
 function souProfNa(id){
   return souSuporte() || papeisNa(id).some(function(p){
     return ["professor","admin"].indexOf(p) >= 0;
+  });
+}
+
+/* Dinheiro é da recepção e de quem manda nela. O admin já pode tudo, e o
+   suporte também — quem decide de verdade é a regra do banco. */
+function podeCobrar(id){
+  return souSuporte() || papeisNa(id).some(function(p){
+    return ["recepcao","gestor","admin"].indexOf(p) >= 0;
+  });
+}
+/* Criar plano mexe no que a academia VENDE: é do gestor para cima. */
+function podeMexerEmPlano(id){
+  return souSuporte() || papeisNa(id).some(function(p){
+    return ["gestor","admin"].indexOf(p) >= 0;
   });
 }
 
@@ -3339,11 +3431,165 @@ function encerrarEntrega(e){
     });
 }
 
+/* ============================================================
+   O financeiro
+
+   Quatro perguntas ao servidor, e nenhuma delas soma nada: quem soma é o
+   app, com o que já está na tela. Somar no banco exigiria uma função nova
+   a cada número que alguém quiser ver.
+
+   `inadimplencia` é uma visão do banco, não uma tabela: para cada matrícula
+   ativa ela gera um mês por competência e some com os que já foram pagos.
+   Isso significa que ela responde sozinha "quem está devendo hoje", sem o
+   app precisar saber a regra.
+   ============================================================ */
+function carregaFinanceiro(id){
+  if(!id) return Promise.resolve();
+  G.finCarregando = true;
+  return Promise.all([
+    supaFetch("/rest/v1/inadimplencia?select=matricula_id,aluno_id,aluno,plano,valor," +
+              "competencia,vencimento&academia_id=eq." + id +
+              "&order=vencimento.asc", { comSessao:true }),
+    /* dois meses de movimento: o suficiente para o resumo do mês e para a
+       lista dos últimos, sem trazer o ano inteiro toda vez */
+    supaFetch("/rest/v1/lancamentos?select=id,aluno_id,matricula_id,tipo,valor,forma," +
+              "competencia,pago_em,estorna_id,observacao&academia_id=eq." + id +
+              "&pago_em=gte." + doisMesesAtras() + "&order=criado_em.desc",
+              { comSessao:true }),
+    supaFetch("/rest/v1/planos?select=id,nome,valor,meses,ativo&academia_id=eq." + id +
+              "&order=valor.asc", { comSessao:true }),
+    supaFetch("/rest/v1/matriculas?select=id,aluno_id,plano_id,inicio,fim,dia_vencimento,ativa" +
+              "&academia_id=eq." + id + "&ativa=is.true&order=criada_em.desc", { comSessao:true })
+  ]).then(function(r){
+    G.aberto      = (r[0].ok && r[0].dados) || [];
+    G.lancamentos = (r[1].ok && r[1].dados) || [];
+    G.planos      = (r[2].ok && r[2].dados) || [];
+    G.matriculas  = (r[3].ok && r[3].dados) || [];
+    G.finCarregando = false;
+  }).catch(function(){
+    G.finCarregando = false;
+    G.erro = "Não consegui buscar o financeiro. Confira a internet.";
+  });
+}
+
+function doisMesesAtras(){
+  var d = new Date();
+  d.setMonth(d.getMonth() - 2, 1);
+  return d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth()+1) + "-01";
+}
+
+/* Quanto entrou de verdade no mês: pagamentos menos o que foi estornado.
+   Um estorno é um lançamento novo apontando para o que ele desfaz — nada
+   é apagado, então a conta tem que subtrair em vez de ignorar. */
+function entrouNoMes(){
+  var ini = primeiroDiaDoMes(), total = 0;
+  G.lancamentos.forEach(function(l){
+    if(l.pago_em < ini) return;
+    total += (l.tipo === "estorno" ? -1 : 1) * Number(l.valor || 0);
+  });
+  return total;
+}
+function foiEstornado(l){
+  return G.lancamentos.some(function(x){ return x.estorna_id === l.id; });
+}
+
+function registraPagamento(item, dados, botao){
+  botao.disabled = true; botao.textContent = "Registrando…";
+  G.erro = ""; G.aviso = "";
+  supaFetch("/rest/v1/lancamentos", { metodo:"POST", comSessao:true,
+    corpo:{ academia_id:G.atual, matricula_id:item.matricula_id, aluno_id:item.aluno_id,
+            tipo:"pagamento", valor:dados.valor, forma:dados.forma,
+            competencia:item.competencia, pago_em:dataISO(),
+            observacao:dados.observacao || null, registrado_por:sessao.uid } })
+    .then(function(r){
+      if(!r.ok) throw new Error("recusado");
+      G.pagando = null;
+      return carregaFinanceiro(G.atual);
+    })
+    .then(function(){ renderView(); })
+    .catch(function(){
+      G.erro = "O banco recusou o pagamento. Quem registra é recepção, gestor ou admin.";
+      renderView();
+    });
+}
+
+/* Estornar não apaga: cria um lançamento espelho. É o que permite responder
+   "para onde foi aquele R$ 120" seis meses depois — e o banco nem tem regra
+   de apagar lançamento, então não existe outro caminho. */
+function estornaLancamento(l){
+  G.erro = ""; G.aviso = "";
+  supaFetch("/rest/v1/lancamentos", { metodo:"POST", comSessao:true,
+    corpo:{ academia_id:G.atual, matricula_id:l.matricula_id, aluno_id:l.aluno_id,
+            tipo:"estorno", valor:l.valor, forma:l.forma, competencia:l.competencia,
+            pago_em:dataISO(), estorna_id:l.id, registrado_por:sessao.uid } })
+    .then(function(r){
+      if(!r.ok) throw new Error("recusado");
+      return carregaFinanceiro(G.atual);
+    })
+    .then(function(){ renderView(); })
+    .catch(function(){
+      G.erro = "Não consegui estornar. Só recepção, gestor ou admin registra.";
+      renderView();
+    });
+}
+
+function criaPlano(dados, botao){
+  botao.disabled = true; botao.textContent = "Criando…";
+  G.erro = "";
+  supaFetch("/rest/v1/planos", { metodo:"POST", comSessao:true,
+    corpo:{ academia_id:G.atual, nome:dados.nome, valor:dados.valor, meses:dados.meses } })
+    .then(function(r){
+      if(!r.ok) throw new Error("recusado");
+      G.formPlano = false;
+      return carregaFinanceiro(G.atual);
+    })
+    .then(function(){ renderView(); })
+    .catch(function(){
+      G.erro = "O banco recusou. Criar plano é de gestor ou admin.";
+      renderView();
+    });
+}
+
+function matriculaAluno(dados, botao){
+  botao.disabled = true; botao.textContent = "Matriculando…";
+  G.erro = "";
+  supaFetch("/rest/v1/matriculas", { metodo:"POST", comSessao:true,
+    corpo:{ academia_id:G.atual, aluno_id:dados.aluno_id, plano_id:dados.plano_id,
+            dia_vencimento:dados.dia_vencimento, inicio:dataISO() } })
+    .then(function(r){
+      if(!r.ok) throw new Error("recusado");
+      G.formMatricula = false;
+      return carregaFinanceiro(G.atual);
+    })
+    .then(function(){ renderView(); })
+    .catch(function(){
+      G.erro = "O banco recusou a matrícula. O aluno precisa ser desta academia.";
+      renderView();
+    });
+}
+
+function encerraMatricula(m){
+  G.erro = "";
+  supaFetch("/rest/v1/matriculas?id=eq." + m.id,
+    { metodo:"PATCH", comSessao:true, prefer:"return=representation",
+      corpo:{ ativa:false, fim:dataISO() } })
+    .then(function(r){
+      if(!r.ok || !r.dados || !r.dados.length) throw new Error("recusado");
+      return carregaFinanceiro(G.atual);
+    })
+    .then(function(){ renderView(); })
+    .catch(function(){
+      G.erro = "Não consegui encerrar a matrícula.";
+      renderView();
+    });
+}
+
 function recarregaGestao(){
   G.carregando = true; if(S.tab === "gestao") renderView();
   return carregaAcademias()
     .then(function(){ return carregaPessoas(G.atual); })
     .then(function(){ return carregaFichas(G.atual); })
+    .then(function(){ return podeCobrar(G.atual) ? carregaFinanceiro(G.atual) : null; })
     .then(function(){ G.carregando = false; renderTabs();
                       if(S.tab === "gestao") renderView(); })
     .catch(function(){ G.carregando = false;
@@ -3412,6 +3658,8 @@ function cadastraPessoa(dados, botao){
 
 function renderGestao(){
   if(G.olhando){ renderAcompanhamento(); return; }
+  if(G.fin === "cobranca"){ renderFinanceiro(); return; }
+  if(G.fin === "planos"){   renderPlanos();    return; }
   viewEl.innerHTML = "";
 
   if(G.carregando && !G.academias.length){
@@ -3441,7 +3689,11 @@ function renderGestao(){
     c.addEventListener("click", function(){
       G.atual = a.id; G.form = false; G.senhaNova = null;
       G.entregando = null; G.erro = ""; G.aviso = ""; G.olhando = null;
-      carregaPessoas(a.id).then(function(){ return carregaFichas(a.id); }).then(renderView);
+      G.fin = null; G.pagando = null; G.formPlano = false; G.formMatricula = false;
+      carregaPessoas(a.id)
+        .then(function(){ return carregaFichas(a.id); })
+        .then(function(){ return podeCobrar(a.id) ? carregaFinanceiro(a.id) : null; })
+        .then(renderView);
     });
     viewEl.appendChild(c);
   });
@@ -3495,6 +3747,28 @@ function renderGestao(){
 
   renderCadastroPessoa();
   renderFichas();
+  renderEntradaFinanceiro();
+}
+
+/* Um cartão só, com os dois números que interessam de longe. O resto do
+   financeiro é tela própria: misturado com pessoas e fichas, a Gestão
+   viraria uma lista sem fim onde nada se acha. */
+function renderEntradaFinanceiro(){
+  if(!podeCobrar(G.atual)) return;
+  var devendo = G.aberto.length;
+  var card = el('<button class="gcard" style="margin-top:22px">' +
+    '<div class="gh"><div class="gn">' +
+      '<div class="t">Financeiro</div>' +
+      '<div class="s">' + fmtDin(entrouNoMes()) + ' recebidos em ' +
+        esc(MESES[new Date().getMonth()]) + ' · ' +
+        (devendo ? devendo + (devendo === 1 ? " mensalidade em aberto" : " mensalidades em aberto")
+                 : "nada em aberto") +
+      '</div>' +
+    '</div><div class="seta">›</div></div></button>');
+  card.addEventListener("click", function(){
+    G.fin = "cobranca"; G.erro = ""; renderView(); window.scrollTo(0,0);
+  });
+  viewEl.appendChild(card);
 }
 
 /* Estava tudo dentro de `renderGestao`, e cada `return` daqui impedia o que
@@ -3522,9 +3796,9 @@ function renderCadastroPessoa(){
     '<div class="fcampo"><label for="gTel">Telefone (opcional)</label>' +
     '<input id="gTel" type="tel" autocomplete="off"></div>' +
     '<div class="fcampo"><label>Papéis</label><div class="papeis" id="gPapeis"></div></div>' +
-    '<div style="margin-top:14px;display:flex;gap:9px">' +
-      '<button id="gCancelar" style="flex:1">Cancelar</button>' +
-      '<button id="gSalvar" class="pri" style="flex:2">Cadastrar</button>' +
+    '<div class="fbtn">' +
+      '<button id="gCancelar">Cancelar</button>' +
+      '<button id="gSalvar" class="pri">Cadastrar</button>' +
     '</div></div>');
 
   var escolhidos = ["aluno"];
@@ -3781,6 +4055,311 @@ function renderAcompanhamento(){
       viewEl.appendChild(card);
     });
   }
+}
+
+/* ============================================================
+   O financeiro na tela
+
+   A academia vende mensalidade; o plano diz o valor DO MÊS e por quantos
+   meses o aluno se comprometeu. Um trimestral de R$ 120 é 120 por mês
+   durante três meses — e é assim que a visão de inadimplência cobra, um
+   mês de cada vez. Escrever isso na tela evita o engano de cadastrar o
+   valor total no lugar da mensalidade.
+   ============================================================ */
+function voltaGestao(){
+  var b = el('<button class="voltar">‹ Voltar para a gestão</button>');
+  b.addEventListener("click", function(){
+    G.fin = null; G.pagando = null; G.formPlano = false; G.formMatricula = false;
+    renderView(); window.scrollTo(0,0);
+  });
+  return b;
+}
+
+function nomeDeAluno(id){
+  var v = G.pessoas.filter(function(x){ return x.pessoa_id === id; })[0];
+  return (v && v.pessoas && v.pessoas.nome) || "aluno";
+}
+
+var FORMAS = [["pix","Pix"], ["dinheiro","Dinheiro"], ["cartao","Cartão"],
+              ["transferencia","Transferência"], ["outro","Outro"]];
+function rotuloForma(f){
+  var a = FORMAS.filter(function(x){ return x[0] === f; })[0];
+  return a ? a[1] : f;
+}
+
+function renderFinanceiro(){
+  viewEl.innerHTML = "";
+  viewEl.appendChild(voltaGestao());
+  viewEl.appendChild(el('<div class="sec" style="margin-top:6px">Financeiro</div>'));
+  if(G.erro)  viewEl.appendChild(el('<div class="gerro">'  + esc(G.erro)  + '</div>'));
+
+  if(G.finCarregando && !G.aberto.length && !G.lancamentos.length){
+    viewEl.appendChild(el('<div class="gvazio">Carregando…</div>'));
+    return;
+  }
+
+  viewEl.appendChild(el('<div class="resumo">' +
+    '<div class="b"><div class="r">Recebido em ' + esc(MESES[new Date().getMonth()]) + '</div>' +
+      '<div class="v">' + esc(fmtDin(entrouNoMes())) + '</div></div>' +
+    '<div class="b' + (G.aberto.length ? " dev" : "") + '"><div class="r">Em aberto</div>' +
+      '<div class="v">' + G.aberto.length + '</div></div>' +
+  '</div>'));
+
+  /* ---- quem está devendo ---- */
+  viewEl.appendChild(el('<div class="sec" style="margin-top:20px">Mensalidades em aberto</div>'));
+
+  if(!G.aberto.length){
+    viewEl.appendChild(el('<div class="gvazio">' +
+      (G.matriculas.length
+        ? "Ninguém devendo. Todas as mensalidades deste período estão pagas."
+        : "Nenhum aluno matriculado ainda. Sem matrícula não há mensalidade a cobrar — " +
+          "comece pelos planos, ali embaixo.") + '</div>'));
+  }
+
+  var hoje = dataISO();
+  G.aberto.forEach(function(item){
+    var atrasada = item.vencimento < hoje;
+    var dias = Math.round((new Date(hoje) - new Date(item.vencimento)) / 86400000);
+    var card = el('<div class="divida' + (atrasada ? " atrasada" : "") + '">' +
+      '<div class="lin"><div class="nm">' + esc(item.aluno) + '</div>' +
+        '<div class="vl">' + esc(fmtDin(item.valor)) + '</div></div>' +
+      '<div class="sub">' + esc(item.plano) + ' · ' + esc(mesBr(item.competencia)) + ' · ' +
+        (atrasada
+          ? '<span class="atraso">venceu ' + (dias === 0 ? "hoje" : "há " + dias + (dias === 1 ? " dia" : " dias")) + '</span>'
+          : 'vence ' + esc(diaBr(item.vencimento))) +
+      '</div><div class="acoes"></div></div>');
+
+    var acoes = card.querySelector(".acoes");
+    var chave = item.matricula_id + "|" + item.competencia;
+
+    if(G.pagando !== chave){
+      var b = el('<button class="mini">Registrar pagamento</button>');
+      b.addEventListener("click", function(){
+        G.pagando = chave; G.erro = ""; renderView();
+      });
+      acoes.appendChild(b);
+    } else {
+      var forma = "pix";
+      var f = el('<div class="pgto">' +
+        '<div class="fcampo"><label for="pgValor">Valor recebido</label>' +
+        '<input id="pgValor" inputmode="decimal" value="' + esc(String(item.valor).replace(".", ",")) + '"></div>' +
+        '<div class="fcampo"><label>Forma</label><div class="papeis" id="pgForma"></div></div>' +
+        '<div class="fcampo"><label for="pgObs">Observação (opcional)</label>' +
+        '<input id="pgObs" type="text" autocomplete="off"></div>' +
+        '<div class="fbtn">' +
+          '<button id="pgCancela">Cancelar</button>' +
+          '<button id="pgSalva" class="pri">Registrar</button>' +
+        '</div></div>');
+      var cx = f.querySelector("#pgForma");
+      FORMAS.forEach(function(par){
+        var bt = el('<button class="papel' + (par[0] === forma ? " on" : "") + '">' + par[1] + '</button>');
+        bt.addEventListener("click", function(){
+          forma = par[0];
+          cx.querySelectorAll(".papel").forEach(function(o){ o.classList.remove("on"); });
+          bt.classList.add("on");
+        });
+        cx.appendChild(bt);
+      });
+      f.querySelector("#pgCancela").addEventListener("click", function(){
+        G.pagando = null; renderView();
+      });
+      f.querySelector("#pgSalva").addEventListener("click", function(){
+        var v = parseFloat(f.querySelector("#pgValor").value.replace(/\./g, "").replace(",", "."));
+        if(!(v > 0)){ G.erro = "O valor precisa ser maior que zero."; renderView(); return; }
+        registraPagamento(item, { valor:v, forma:forma,
+                                  observacao:f.querySelector("#pgObs").value.trim() }, this);
+      });
+      acoes.appendChild(f);
+    }
+    viewEl.appendChild(card);
+  });
+
+  /* ---- o que já entrou ---- */
+  if(G.lancamentos.length){
+    viewEl.appendChild(el('<div class="sec" style="margin-top:22px">Últimos lançamentos</div>'));
+    var lista = el('<div class="gcard"></div>');
+    G.lancamentos.slice(0, 25).forEach(function(l){
+      var desfeito = l.tipo === "pagamento" && foiEstornado(l);
+      var linha = el('<div class="lanc' + (l.tipo === "estorno" ? " estorno" : "") +
+                     (desfeito ? " desfeito" : "") + '">' +
+        '<div class="q">' + esc(nomeDeAluno(l.aluno_id)) +
+          '<i>' + esc(mesCurto(l.competencia)) + ' · ' + esc(rotuloForma(l.forma)) +
+          ' · ' + esc(diaBr(l.pago_em)) +
+          (l.tipo === "estorno" ? " · estorno" : (desfeito ? " · estornado" : "")) +
+          (l.observacao ? ' · ' + esc(l.observacao) : '') + '</i></div>' +
+        '<div class="v">' + (l.tipo === "estorno" ? "−" : "") + esc(fmtDin(l.valor)) + '</div>' +
+      '</div>');
+      if(l.tipo === "pagamento" && !desfeito){
+        var e = el('<button type="button">Estornar</button>');
+        e.addEventListener("click", function(){
+          if(confirm("Estornar " + fmtDin(l.valor) + " de " + nomeDeAluno(l.aluno_id) + "?\n\n" +
+                     "O lançamento não é apagado: entra um estorno desfazendo, e a " +
+                     "mensalidade volta para a lista de em aberto."))
+            estornaLancamento(l);
+        });
+        linha.appendChild(e);
+      }
+      lista.appendChild(linha);
+    });
+    viewEl.appendChild(lista);
+  }
+
+  var bp = el('<button class="gbotao">Planos e matrículas</button>');
+  bp.addEventListener("click", function(){
+    G.fin = "planos"; G.erro = ""; renderView(); window.scrollTo(0,0);
+  });
+  viewEl.appendChild(bp);
+}
+
+function renderPlanos(){
+  viewEl.innerHTML = "";
+  var volta = el('<button class="voltar">‹ Voltar para o financeiro</button>');
+  volta.addEventListener("click", function(){
+    G.fin = "cobranca"; G.formPlano = false; G.formMatricula = false;
+    renderView(); window.scrollTo(0,0);
+  });
+  viewEl.appendChild(volta);
+  viewEl.appendChild(el('<div class="sec" style="margin-top:6px">Planos</div>'));
+  if(G.erro) viewEl.appendChild(el('<div class="gerro">' + esc(G.erro) + '</div>'));
+
+  if(!G.planos.length){
+    viewEl.appendChild(el('<div class="gvazio">Nenhum plano ainda. O plano diz ' +
+      '<b>quanto custa o mês</b> e por quantos meses o aluno se compromete.</div>'));
+  }
+  G.planos.forEach(function(p){
+    viewEl.appendChild(el('<div class="gcard"><div class="gh"><div class="gn">' +
+      '<div class="t">' + esc(p.nome) + '</div>' +
+      '<div class="s">' + esc(fmtDin(p.valor)) + ' por mês · ' + p.meses +
+        (p.meses === 1 ? " mês" : " meses") +
+        ' · total ' + esc(fmtDin(Number(p.valor) * p.meses)) + '</div>' +
+    '</div></div></div>'));
+  });
+
+  if(podeMexerEmPlano(G.atual)){
+    if(!G.formPlano){
+      var novo = el('<button class="mini" style="margin-top:12px">+ Novo plano</button>');
+      novo.addEventListener("click", function(){ G.formPlano = true; G.erro = ""; renderView(); });
+      viewEl.appendChild(novo);
+    } else {
+      var fp = el('<div class="gcard" style="margin-top:12px">' +
+        '<div class="fcampo"><label for="plNome">Nome do plano</label>' +
+        '<input id="plNome" type="text" autocomplete="off" placeholder="Mensal, Trimestral, Anual…"></div>' +
+        '<div class="fcampo"><label for="plValor">Valor por mês</label>' +
+        '<input id="plValor" inputmode="decimal" placeholder="120,00"></div>' +
+        '<div class="fcampo"><label for="plMeses">Duração em meses</label>' +
+        '<input id="plMeses" inputmode="numeric" placeholder="3"></div>' +
+        '<div class="fbtn">' +
+          '<button id="plCancela">Cancelar</button>' +
+          '<button id="plSalva" class="pri">Criar plano</button>' +
+        '</div></div>');
+      fp.querySelector("#plCancela").addEventListener("click", function(){
+        G.formPlano = false; renderView();
+      });
+      fp.querySelector("#plSalva").addEventListener("click", function(){
+        var nome  = fp.querySelector("#plNome").value.trim();
+        var valor = parseFloat(fp.querySelector("#plValor").value.replace(/\./g,"").replace(",","."));
+        var meses = parseInt(fp.querySelector("#plMeses").value, 10);
+        if(nome.length < 2){ G.erro = "Falta o nome do plano."; renderView(); return; }
+        if(!(valor >= 0)){ G.erro = "Falta o valor do mês."; renderView(); return; }
+        if(!(meses >= 1)){ G.erro = "Falta a duração em meses."; renderView(); return; }
+        criaPlano({ nome:nome, valor:valor, meses:meses }, this);
+      });
+      viewEl.appendChild(fp);
+    }
+  }
+
+  /* ---- matrículas ---- */
+  viewEl.appendChild(el('<div class="sec" style="margin-top:24px">Matrículas ativas</div>'));
+  if(!G.matriculas.length){
+    viewEl.appendChild(el('<div class="gvazio">Ninguém matriculado. A matrícula é o que ' +
+      'faz a mensalidade nascer todo mês.</div>'));
+  }
+  G.matriculas.forEach(function(m){
+    var pl = G.planos.filter(function(p){ return p.id === m.plano_id; })[0] || {};
+    var card = el('<div class="quem" style="border-top:0">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div class="nm">' + esc(nomeDeAluno(m.aluno_id)) + '</div>' +
+        '<div class="quando">' + esc(pl.nome || "plano") + ' · vence dia ' + m.dia_vencimento +
+          ' · desde ' + esc(String(m.inicio||"").split("-").reverse().join("/")) + '</div>' +
+      '</div></div>');
+    var x = el('<button type="button">Encerrar</button>');
+    x.addEventListener("click", function(){
+      if(confirm("Encerrar a matrícula de " + nomeDeAluno(m.aluno_id) + "?\n\n" +
+                 "Ela para de gerar mensalidade. O que já foi lançado continua no histórico."))
+        encerraMatricula(m);
+    });
+    card.appendChild(x);
+    viewEl.appendChild(card);
+  });
+
+  var alunos = G.pessoas.filter(function(v){
+    return v.ativo && (v.papeis||[]).indexOf("aluno") >= 0 &&
+           !G.matriculas.some(function(m){ return m.aluno_id === v.pessoa_id; });
+  });
+
+  if(!G.formMatricula){
+    var bm = el('<button class="gbotao">+ Matricular aluno</button>');
+    bm.addEventListener("click", function(){ G.formMatricula = true; G.erro = ""; renderView(); });
+    viewEl.appendChild(bm);
+    return;
+  }
+
+  if(!G.planos.length){
+    viewEl.appendChild(el('<div class="gaviso">Crie um plano antes: a matrícula precisa ' +
+      'saber quanto cobrar por mês.</div>'));
+    return;
+  }
+  if(!alunos.length){
+    viewEl.appendChild(el('<div class="gaviso">Todo mundo já está matriculado, ou não há ' +
+      'aluno cadastrado nesta academia.</div>'));
+    return;
+  }
+
+  var escolhido = null, planoId = G.planos[0].id;
+  var fm = el('<div class="gcard" style="margin-top:12px">' +
+    '<div class="fcampo"><label>Aluno</label><div class="alunos" id="mtAluno"></div></div>' +
+    '<div class="fcampo"><label>Plano</label><div class="alunos" id="mtPlano"></div></div>' +
+    '<div class="fcampo"><label for="mtDia">Dia do vencimento</label>' +
+    '<input id="mtDia" inputmode="numeric" value="10"></div>' +
+    '<div class="fbtn">' +
+      '<button id="mtCancela">Cancelar</button>' +
+      '<button id="mtSalva" class="pri">Matricular</button>' +
+    '</div></div>');
+
+  var ca = fm.querySelector("#mtAluno");
+  alunos.forEach(function(v){
+    var bt = el('<button type="button">' + esc((v.pessoas||{}).nome || "sem nome") + '</button>');
+    bt.addEventListener("click", function(){
+      escolhido = v.pessoa_id;
+      ca.querySelectorAll("button").forEach(function(o){ o.style.borderColor = ""; o.style.color = ""; });
+      bt.style.borderColor = "var(--accent)"; bt.style.color = "var(--accent)";
+    });
+    ca.appendChild(bt);
+  });
+  var cp = fm.querySelector("#mtPlano");
+  G.planos.forEach(function(p, i){
+    var bt = el('<button type="button">' + esc(p.nome) + ' · ' + esc(fmtDin(p.valor)) + '/mês</button>');
+    if(i === 0){ bt.style.borderColor = "var(--accent)"; bt.style.color = "var(--accent)"; }
+    bt.addEventListener("click", function(){
+      planoId = p.id;
+      cp.querySelectorAll("button").forEach(function(o){ o.style.borderColor = ""; o.style.color = ""; });
+      bt.style.borderColor = "var(--accent)"; bt.style.color = "var(--accent)";
+    });
+    cp.appendChild(bt);
+  });
+  fm.querySelector("#mtCancela").addEventListener("click", function(){
+    G.formMatricula = false; renderView();
+  });
+  fm.querySelector("#mtSalva").addEventListener("click", function(){
+    var dia = parseInt(fm.querySelector("#mtDia").value, 10);
+    if(!escolhido){ G.erro = "Escolha o aluno."; renderView(); return; }
+    if(!(dia >= 1 && dia <= 28)){
+      G.erro = "O dia do vencimento vai de 1 a 28 — 29, 30 e 31 não existem em todo mês.";
+      renderView(); return;
+    }
+    matriculaAluno({ aluno_id:escolhido, plano_id:planoId, dia_vencimento:dia }, this);
+  });
+  viewEl.appendChild(fm);
 }
 
 /* ============================================================
