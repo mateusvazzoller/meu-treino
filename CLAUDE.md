@@ -217,6 +217,26 @@ Sem ficha, `PLAN[d]` não existe e o app quebrava **uma vez por segundo**, no
 relógio do topo. As três (mais `totalSets`, `doneSets` e `bs`) têm guarda.
 Qualquer função nova que indexe `PLAN` precisa da mesma.
 
+### O professor vê o que o aluno fez — feito
+
+Sem isso, o que o aluno marca subia e ninguém olhava. Na aba Gestão, cada
+linha de quem está com a ficha mostra **quando ele treinou pela última vez**
+e abre o acompanhamento dele: sessões concluídas (com duração, esforço e a
+anotação que ele escreveu) e as cargas semana a semana.
+
+Duas decisões que valem manter:
+
+- **A lista busca só a data, o detalhe busca o resto.** O estado de um aluno
+  é grande; trazer o de todos para desenhar uma lista faria a tela demorar
+  mais quanto maior a academia. O `valor` só é buscado quando alguém abre um
+  aluno.
+- **É leitura, só leitura.** Quem escreve o treino é o aluno; a regra do
+  banco não deixa o professor escrever no lugar dele nem por engano. O que o
+  professor pode fazer é encerrar a entrega.
+
+"há 3 dias" em vez da data: a pergunta do professor é "ele sumiu?", não "que
+dia era".
+
 ## O trabalho que ainda não foi feito
 
 ### Ninguém consegue se colocar numa academia pelo app

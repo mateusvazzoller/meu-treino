@@ -535,6 +535,28 @@ try{
   .alunos button{border:1px solid var(--line);border-radius:8px;padding:9px 12px;
                  font-size:13.5px;color:var(--ink);background:var(--surface-2)}
   .alunos button[disabled]{opacity:.4}
+  /* a linha de quem está com a ficha vira porta para o acompanhamento */
+  .quem.abre{cursor:pointer}
+  .quem .quando{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+  .quem .seta{color:var(--ink-3);font-size:15px;flex:none}
+  .voltar{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);
+          font-size:13px;padding:8px 0;background:transparent;border:0}
+  .sessao{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+          padding:13px 14px;margin-top:9px}
+  .sessao .lin{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .sessao .nm{font-weight:600;font-size:14.5px;color:var(--ink)}
+  .sessao .qd{font-size:12px;color:var(--ink-3);white-space:nowrap;
+              font-variant-numeric:tabular-nums}
+  .sessao .det{margin-top:5px;font-size:12.5px;color:var(--ink-2)}
+  .sessao .anot{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);
+                font-size:13px;color:var(--ink-2);white-space:pre-wrap}
+  .exerc{margin-top:13px}
+  .exerc .en{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .exerc .sem{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .exerc .sem span{border:1px solid var(--line);border-radius:7px;padding:6px 9px;
+                   font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .exerc .sem span b{color:var(--ink);font-weight:600}
+  .exerc .sem span.vazia{opacity:.45}
   /* `.mini` (9,5 px, parecendo link) escondia o "sair" a ponto de o usuário
      jurar que ele não existia. Sair da conta é ação de peso: merece contorno,
      área de toque e a cor de atenção. */
@@ -3118,7 +3140,8 @@ document.getElementById("btnSenha").addEventListener("click", abreTrocaSenha);
    ============================================================ */
 var G = { academias: [], atual: null, pessoas: [], carregando: false, erro: "",
           senhaNova: null, form: false,
-          fichas: [], entregas: [], entregando: null, aviso: "" };
+          fichas: [], entregas: [], entregando: null, aviso: "",
+          atividade: {}, olhando: null };
 var ROTULO_PAPEL = { aluno:"Aluno", professor:"Professor", recepcao:"Recepção",
                      gestor:"Gestor", admin:"Admin" };
 var ORDEM_PAPEL = ["aluno","professor","recepcao","gestor","admin"];
@@ -3195,6 +3218,67 @@ function carregaFichas(id){
   ]).then(function(r){
     G.fichas   = (r[0].ok && r[0].dados) || [];
     G.entregas = (r[1].ok && r[1].dados) || [];
+  }).then(function(){ return carregaAtividade(id); });
+}
+
+/* Quando cada aluno mexeu no app pela última vez. De propósito só a DATA:
+   o que ele marcou é grande, e trazer tudo de todo mundo para desenhar uma
+   lista faria a tela demorar mais quanto maior a academia. O detalhe de um
+   aluno só é buscado quando alguém abre o dele. */
+function carregaAtividade(id){
+  if(!id){ G.atividade = {}; return Promise.resolve(); }
+  return supaFetch("/rest/v1/registros?select=atribuicao_id,atualizado_em" +
+                   "&chave=eq.estado&academia_id=eq." + id, { comSessao:true })
+    .then(function(r){
+      G.atividade = {};
+      ((r.ok && r.dados) || []).forEach(function(x){
+        G.atividade[x.atribuicao_id] = x.atualizado_em;
+      });
+    })
+    .catch(function(){ G.atividade = {}; });
+}
+
+/* "há 3 dias" diz mais do que uma data: a pergunta do professor é "ele
+   sumiu?", não "que dia era". */
+function faz(quando){
+  if(!quando) return "";
+  var ms = Date.now() - new Date(quando).getTime();
+  var min = Math.round(ms / 60000);
+  if(min < 2)     return "agora";
+  if(min < 60)    return "há " + min + " min";
+  var h = Math.round(min / 60);
+  if(h < 24)      return "há " + h + (h === 1 ? " hora" : " horas");
+  var d = Math.round(h / 24);
+  if(d < 31)      return "há " + d + (d === 1 ? " dia" : " dias");
+  var me = Math.round(d / 30);
+  return "há " + me + (me === 1 ? " mês" : " meses");
+}
+
+/* O detalhe de um aluno: o que ele marcou, mais a ficha dele para dar nome
+   aos exercícios. Sem a ficha, o que existe é um punhado de chaves. */
+function abreAcompanhamento(entrega, nomeAluno, ficha){
+  G.olhando = { aid:entrega.id, aluno:nomeAluno, ficha:ficha.nome,
+                carregando:true, erro:"", estado:null, plano:[], semanas:ficha.semanas };
+  renderView();
+  Promise.all([
+    supaFetch("/rest/v1/registros?select=valor,atualizado_em&chave=eq.estado" +
+              "&atribuicao_id=eq." + entrega.id, { comSessao:true }),
+    supaFetch("/rest/v1/fichas?select=conteudo,semanas&id=eq." + ficha.id, { comSessao:true })
+  ]).then(function(r){
+    if(!G.olhando || G.olhando.aid !== entrega.id) return;   /* já saiu da tela */
+    var reg = r[0].ok && r[0].dados && r[0].dados[0];
+    var fic = r[1].ok && r[1].dados && r[1].dados[0];
+    G.olhando.estado  = (reg && reg.valor) || null;
+    G.olhando.quando  = reg && reg.atualizado_em;
+    G.olhando.plano   = (fic && fic.conteudo) || [];
+    G.olhando.semanas = (fic && fic.semanas) || ficha.semanas;
+    G.olhando.carregando = false;
+    renderView();
+  }).catch(function(){
+    if(!G.olhando) return;
+    G.olhando.carregando = false;
+    G.olhando.erro = "Não consegui buscar o treino deste aluno. Confira a internet.";
+    renderView();
   });
 }
 
@@ -3327,6 +3411,7 @@ function cadastraPessoa(dados, botao){
 }
 
 function renderGestao(){
+  if(G.olhando){ renderAcompanhamento(); return; }
   viewEl.innerHTML = "";
 
   if(G.carregando && !G.academias.length){
@@ -3355,7 +3440,7 @@ function renderGestao(){
       '</div></div></button>');
     c.addEventListener("click", function(){
       G.atual = a.id; G.form = false; G.senhaNova = null;
-      G.entregando = null; G.erro = ""; G.aviso = "";
+      G.entregando = null; G.erro = ""; G.aviso = ""; G.olhando = null;
       carregaPessoas(a.id).then(function(){ return carregaFichas(a.id); }).then(renderView);
     });
     viewEl.appendChild(c);
@@ -3507,18 +3592,31 @@ function renderFichas(){
       '</div></div></div>');
 
     quem.forEach(function(e){
-      var linha = el('<div class="quem">' +
-        '<div class="nm">' + esc(nomeDe[e.aluno_id] || "aluno de fora desta lista") + '</div>' +
-        '<div class="dt">desde ' + esc(String(e.inicio || "").split("-").reverse().join("/")) + '</div>' +
-        '</div>');
+      var nome = nomeDe[e.aluno_id] || "aluno de fora desta lista";
+      var visto = G.atividade[e.id];
+      var desde = String(e.inicio || "").split("-").reverse().join("/");
+      var linha = el('<div class="quem abre">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="nm">' + esc(nome) + '</div>' +
+          '<div class="quando">' +
+            (visto ? "treinou " + esc(faz(visto)) : "ainda não abriu o treino") +
+            ' · desde ' + esc(desde) +
+          '</div>' +
+        '</div><div class="seta">›</div></div>');
+
+      linha.addEventListener("click", function(){
+        abreAcompanhamento(e, nome, f);
+      });
+
       if(podeEntregar){
         var x = el('<button type="button">Encerrar</button>');
-        x.addEventListener("click", function(){
-          if(confirm("Encerrar a ficha de " + (nomeDe[e.aluno_id] || "este aluno") + "?\n\n" +
+        x.addEventListener("click", function(ev){
+          ev.stopPropagation();     /* senão encerrar abriria o acompanhamento */
+          if(confirm("Encerrar a ficha de " + nome + "?\n\n" +
                      "Ela some do app dele. O que ele já marcou continua guardado."))
             encerrarEntrega(e);
         });
-        linha.appendChild(x);
+        linha.insertBefore(x, linha.lastChild);
       }
       card.appendChild(linha);
     });
@@ -3557,6 +3655,132 @@ function renderFichas(){
 
     viewEl.appendChild(card);
   });
+}
+
+/* ============================================================
+   O professor vê o que o aluno fez
+
+   O aluno marca no celular dele e aquilo sobe para `registros`. Sem esta
+   tela, sobe e ninguém olha — o professor entrega a ficha e fica cego.
+
+   A leitura é só leitura: quem escreve o treino é o aluno, e a regra do
+   banco não deixa o professor escrever no lugar dele nem por engano.
+   ============================================================ */
+function renderAcompanhamento(){
+  var o = G.olhando;
+  viewEl.innerHTML = "";
+
+  var voltar = el('<button class="voltar">‹ Voltar para as fichas</button>');
+  voltar.addEventListener("click", function(){ G.olhando = null; renderView(); });
+  viewEl.appendChild(voltar);
+
+  viewEl.appendChild(el('<div class="sec" style="margin-top:6px">' + esc(o.aluno) + '</div>'));
+  viewEl.appendChild(el('<div class="gvazio" style="padding:0 2px 4px">' +
+    esc(o.ficha) + (o.quando ? ' · treinou ' + esc(faz(o.quando)) : '') + '</div>'));
+
+  if(o.carregando){
+    viewEl.appendChild(el('<div class="gvazio">Buscando…</div>'));
+    return;
+  }
+  if(o.erro){
+    viewEl.appendChild(el('<div class="gerro">' + esc(o.erro) + '</div>'));
+    return;
+  }
+
+  var est   = o.estado || {};
+  var sess  = est.sess  || {};
+  var logs  = est.logs  || {};
+  var notas = est.notas || {};
+  var feito = est.done  || {};
+  var pre   = String(o.aid || "").slice(0, 8) + "|";
+
+  var nSess = Object.keys(sess).length;
+  var nFeit = Object.keys(feito).length;
+
+  if(!nSess && !nFeit){
+    viewEl.appendChild(el('<div class="gvazio">Este aluno ainda não marcou nada. ' +
+      'Se ele acabou de receber a ficha, é o esperado — o app dele só manda ' +
+      'quando ele marca a primeira série.</div>'));
+    return;
+  }
+
+  viewEl.appendChild(el('<div class="gvazio" style="padding:6px 2px 2px">' +
+    nFeit + (nFeit === 1 ? " série marcada" : " séries marcadas") + ' · ' +
+    nSess + (nSess === 1 ? " sessão concluída" : " sessões concluídas") + '</div>'));
+
+  /* ---- sessões concluídas ---- */
+  var nomeSess = {};
+  (o.plano || []).forEach(function(sx){ nomeSess[sx.id] = sx.nome; });
+
+  if(nSess){
+    viewEl.appendChild(el('<div class="sec" style="margin-top:18px">Sessões concluídas</div>'));
+    Object.keys(sess).map(function(k){
+      var p = k.split("|");
+      return { sem: parseInt(String(p[1]).replace("w",""), 10) || 0,
+               id: p[2], r: sess[k], nota: notas[k] };
+    }).sort(function(a,b){ return a.sem - b.sem; }).forEach(function(x){
+      var r = x.r || {};
+      var card = el('<div class="sessao">' +
+        '<div class="lin"><div class="nm">' + esc(nomeSess[x.id] || "sessão") + '</div>' +
+          '<div class="qd">' + esc(r.data || "") + '</div></div>' +
+        '<div class="det">Semana ' + x.sem + ' · ' + (r.sets || 0) + '/' + (r.tot || 0) +
+          ' séries' + (r.dur != null ? ' · ' + fmtLongo(r.dur) : '') +
+          (r.rpe ? ' · ' + esc(RPEL[r.rpe] || "") : '') + '</div>' +
+        (x.nota ? '<div class="anot">' + esc(x.nota) + '</div>' : '') +
+      '</div>');
+      viewEl.appendChild(card);
+    });
+  }
+
+  /* ---- cargas por exercício ---- */
+  var linhas = [];
+  (o.plano || []).forEach(function(sx, d){
+    (sx.blocos || []).forEach(function(b){
+      var vistos = {};
+      for(var w = 1; w <= (o.semanas || 4); w++){
+        var s = b.sem || [];
+        var cfg = s[w-1] || s[s.length-1];
+        if(!cfg) continue;
+        (cfg.it || []).forEach(function(it, ii){
+          if(!it.reg) return;
+          var chave = sx.id + "|" + b.id + "|" + ii;
+          if(!vistos[chave]){
+            vistos[chave] = { sessao:sx.nome, nome:it.n, sem:{} };
+            linhas.push(vistos[chave]);
+          }
+          var vals = [];
+          for(var i = 0; i < (cfg.s || 0); i++){
+            var v = logs[pre + "w" + w + "|" + sx.id + "|" + b.id + "|" + ii + "|" + i];
+            if(v) vals.push(v);
+          }
+          if(vals.length) vistos[chave].sem[w] = vals.join(" · ");
+        });
+      }
+    });
+  });
+  linhas = linhas.filter(function(l){ return Object.keys(l.sem).length; });
+
+  if(linhas.length){
+    viewEl.appendChild(el('<div class="sec" style="margin-top:20px">Cargas e marcas</div>'));
+    var porSessao = {};
+    linhas.forEach(function(l){ (porSessao[l.sessao] = porSessao[l.sessao] || []).push(l); });
+    Object.keys(porSessao).forEach(function(nome){
+      var card = el('<div class="gcard"><div class="gh"><div class="gn">' +
+        '<div class="t">' + esc(nome) + '</div></div></div></div>');
+      porSessao[nome].forEach(function(l){
+        var bloco = el('<div class="exerc"><div class="en">' + esc(l.nome) + '</div>' +
+                       '<div class="sem"></div></div>');
+        var caixa = bloco.querySelector(".sem");
+        for(var w = 1; w <= (o.semanas || 4); w++){
+          var v = l.sem[w];
+          caixa.appendChild(el('<span' + (v ? '' : ' class="vazia"') + '>S' + w + ' ' +
+                               (v ? '<b>' + esc(v) + '</b>' : '—') + '</span>'));
+        }
+        card.appendChild(bloco);
+      });
+      viewEl.appendChild(card);
+    });
+  }
 }
 
 /* ============================================================
